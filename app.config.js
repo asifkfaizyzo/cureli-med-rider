@@ -1,4 +1,4 @@
-//cureli-rider-app\app.config.js
+// app.config.js
 export default {
   expo: {
     owner: "your-zeros-and-ones",
@@ -6,7 +6,7 @@ export default {
     slug: "cureli-rider-app",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/icon.png",
+    icon: "./assets/images/icon.png",
     scheme: "cureli-rider",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
@@ -23,8 +23,9 @@ export default {
     },
     android: {
       adaptiveIcon: {
-        backgroundColor: "#0D0D0D",
-        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#090025",
+        foregroundImage: "./assets/images/android-icon-foreground.png",
+        monochromeImage: "./assets/images/android-icon-monochrome.png",
       },
       edgeToEdgeEnabled: true,
       package: "in.cureli.delivery",
@@ -36,7 +37,7 @@ export default {
     },
     web: {
       output: "static",
-      favicon: "./assets/favicon.png",
+      favicon: "./assets/images/favicon.png",
     },
     plugins: [
       "expo-dev-client",
@@ -44,10 +45,10 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/splash-icon.png",
+          image: "./assets/images/splash-icon.png",
           imageWidth: 150,
           resizeMode: "contain",
-          backgroundColor: "#0D0D0D",
+          backgroundColor: "#090025",
         },
       ],
       "expo-font",
@@ -60,6 +61,16 @@ export default {
           isAndroidBackgroundLocationEnabled: false,
         },
       ],
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/images/android-icon-monochrome.png",
+          color: "#090025",
+          defaultChannel: "default",
+          sounds: [],
+        },
+      ],
+      // ── Pin AGP version for EAS build compatibility ───────────
       [
         "expo-build-properties",
         {

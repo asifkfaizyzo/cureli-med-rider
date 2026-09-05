@@ -1,7 +1,6 @@
-//cureli-rider-app\app\_layout.tsx
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ThemeProvider } from '../src/theme/ThemeContext';
+import { ThemeProvider } from '@/src/theme/ThemeContext';
 
 export default function RootLayout() {
   return (
