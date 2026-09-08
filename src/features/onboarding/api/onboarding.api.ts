@@ -1,3 +1,4 @@
+//src\features\onboarding\api\onboarding.api.ts
 import { api } from '../../../services/api';
 import type { OnboardingStatus } from '../../../types/auth';
 

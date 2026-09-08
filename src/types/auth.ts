@@ -1,29 +1,28 @@
-// ── Enums ─────────────────────────────────────────────────────
+// src/types/auth.ts
 
-export type RiderType = 'INDEPENDENT' | 'TEAM';
+export type RiderType = "INDEPENDENT" | "TEAM";
 
 export type RiderStatus =
-  | 'PENDING_REVIEW'
-  | 'ACTIVE'
-  | 'SUSPENDED'
-  | 'BLOCKED'
-  | 'REJECTED';
+  | "DRAFT" // ← Added DRAFT state
+  | "PENDING_REVIEW"
+  | "ACTIVE"
+  | "SUSPENDED"
+  | "BLOCKED"
+  | "REJECTED";
 
 export type DocumentGroup =
-  | 'DRIVING_LICENSE'
-  | 'VEHICLE_RC'
-  | 'AADHAAR'
-  | 'PAN'
-  | 'PROFILE_PHOTO';
+  | "DRIVING_LICENSE"
+  | "VEHICLE_RC"
+  | "AADHAAR"
+  | "PAN"
+  | "PROFILE_PHOTO";
 
 export type DocumentStatus =
-  | 'NOT_UPLOADED'
-  | 'PENDING'
-  | 'UNDER_REVIEW'
-  | 'APPROVED'
-  | 'REJECTED';
-
-// ── Models ────────────────────────────────────────────────────
+  | "NOT_UPLOADED"
+  | "PENDING"
+  | "UNDER_REVIEW"
+  | "APPROVED"
+  | "REJECTED";
 
 export interface RiderDocument {
   group: DocumentGroup;
@@ -35,13 +34,6 @@ export interface RiderDocument {
   has_back: boolean | null;
   uploaded_at: string | null;
   resubmission_count?: number;
-}
-
-export interface RiderZone {
-  zone_id: string;
-  name: string;
-  city: string;
-  state: string;
 }
 
 export interface RiderProfile {
@@ -84,8 +76,6 @@ export interface RiderProfile {
   has_accepted_terms: boolean;
 }
 
-// ── Auth Responses ────────────────────────────────────────────
-
 export interface CheckPhoneResponse {
   exists: boolean;
   has_password: boolean;
@@ -121,8 +111,6 @@ export interface SetPasswordResponse {
   expiresIn: number;
   rider: RiderProfile;
 }
-
-// ── Onboarding Status ─────────────────────────────────────────
 
 export interface OnboardingSteps {
   personal_details: boolean;

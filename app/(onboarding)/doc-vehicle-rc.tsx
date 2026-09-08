@@ -1,4 +1,4 @@
-// app/(onboarding)/doc-aadhar.tsx
+// app/(onboarding)/doc-vehicle-rc.tsx
 
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -22,37 +22,30 @@ import { FontFamily } from "../../src/theme/typography";
 
 type UploadState = "empty" | "picked" | "uploading" | "done" | "error";
 
-export default function DocAadharScreen() {
+export default function DocVehicleRcScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
 
-  // Document States with Cache Integration
-  const [frontUri, setFrontUri] = useState<string | null>(
-    documentCache.getUri("AADHAAR", "front"),
+  // Document State with Cache Integration
+  const [uri, setUri] = useState<string | null>(
+    documentCache.getUri("VEHICLE_RC", "front"),
   );
-  const [frontState, setFrontState] = useState<UploadState>(
-    documentCache.has("AADHAAR", "front") ? "done" : "empty",
-  );
-  const [backUri, setBackUri] = useState<string | null>(
-    documentCache.getUri("AADHAAR", "back"),
-  );
-  const [backState, setBackState] = useState<UploadState>(
-    documentCache.has("AADHAAR", "back") ? "done" : "empty",
+  const [state, setState] = useState<UploadState>(
+    documentCache.has("VEHICLE_RC", "front") ? "done" : "empty",
   );
   const [error, setError] = useState<string | null>(null);
 
   // Bottom Sheet Picker State
   const [pickerVisible, setPickerVisible] = useState(false);
-  const [activeSide, setActiveSide] = useState<"front" | "back" | null>(null);
 
-  const canContinue = frontState === "done" && backState === "done";
+  const canContinue = state === "done";
 
   // Safe Stack-Aware Back Navigation
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace("/(onboarding)/doc-vehicle-rc");
+      router.replace("/(onboarding)/doc-driving-license");
     }
   };
 
@@ -65,7 +58,7 @@ export default function DocAadharScreen() {
       if (source === "camera") {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== "granted") {
-          setError("Camera permission is required to capture Aadhaar card.");
+          setError("Camera permission is required to capture Vehicle RC.");
           return;
         }
         result = await ImagePicker.launchCameraAsync({
@@ -85,13 +78,13 @@ export default function DocAadharScreen() {
         });
       }
 
-      if (!result.canceled && result.assets[0] && activeSide) {
+      if (!result.canceled && result.assets[0]) {
         const image = {
           uri: result.assets[0].uri,
-          name: "aadhar.jpg",
+          name: "vehicle_rc.jpg",
           type: result.assets[0].mimeType || "image/jpeg",
         };
-        await uploadSelectedImage(activeSide, image);
+        await uploadSelectedImage(image);
       }
     } catch {
       setError("Failed to select image source.");
@@ -99,45 +92,32 @@ export default function DocAadharScreen() {
   }
 
   // Upload Logic with Cache Integration
-  async function uploadSelectedImage(
-    side: "front" | "back",
-    image: { uri: string; name: string; type: string },
-  ) {
+  async function uploadSelectedImage(image: {
+    uri: string;
+    name: string;
+    type: string;
+  }) {
     setError(null);
-    const isFront = side === "front";
-
-    if (isFront) {
-      setFrontUri(image.uri);
-      setFrontState("uploading");
-    } else {
-      setBackUri(image.uri);
-      setBackState("uploading");
-    }
+    setUri(image.uri);
+    setState("uploading");
 
     try {
       await onboardingApi.uploadDocument(
-        "AADHAAR_FRONT",
-        isFront,
+        "VEHICLE_RC",
+        true,
         image.uri,
         image.name,
         image.type,
       );
 
       // Cache local URI for immediate restore
-      documentCache.setUri("AADHAAR", side, image.uri);
+      documentCache.setUri("VEHICLE_RC", "front", image.uri);
 
-      if (isFront) setFrontState("done");
-      else setBackState("done");
+      setState("done");
     } catch {
-      if (isFront) setFrontState("error");
-      else setBackState("error");
-      setError(`Failed to upload ${side} side of Aadhaar card.`);
+      setState("error");
+      setError("Failed to upload Vehicle RC.");
     }
-  }
-
-  function handleTriggerPick(side: "front" | "back") {
-    setActiveSide(side);
-    setPickerVisible(true);
   }
 
   return (
@@ -188,30 +168,19 @@ export default function DocAadharScreen() {
         >
           <View style={styles.headerBlock}>
             <Text style={[styles.title, { color: colors.text.primary }]}>
-              Aadhaar Card
+              Vehicle RC
             </Text>
             <Text style={[styles.subtitle, { color: colors.text.muted }]}>
-              Upload a clear photo of both sides of your Aadhaar card for ID
-              verification.
+              Upload a clear photo of your Registration Certificate (RC) card.
             </Text>
           </View>
 
           <View style={styles.formGroup}>
-            {/* Front Card */}
             <UploadCard
-              label="Aadhaar Front Side"
-              state={frontState}
-              uri={frontUri}
-              onPick={() => handleTriggerPick("front")}
-              colors={colors}
-            />
-
-            {/* Back Card */}
-            <UploadCard
-              label="Aadhaar Back Side"
-              state={backState}
-              uri={backUri}
-              onPick={() => handleTriggerPick("back")}
+              label="Vehicle RC Photo"
+              state={state}
+              uri={uri}
+              onPick={() => setPickerVisible(true)}
               colors={colors}
             />
           </View>
@@ -241,7 +210,7 @@ export default function DocAadharScreen() {
               },
               !canContinue && styles.buttonDisabled,
             ]}
-            onPress={() => router.push("/(onboarding)/doc-pan")}
+            onPress={() => router.push("/(onboarding)/doc-aadhar")}
             disabled={!canContinue}
             activeOpacity={0.85}
           >
@@ -313,7 +282,7 @@ function UploadCard({ label, state, uri, onPick, colors }: UploadCardProps) {
               ]}
             >
               <MaterialIcons
-                name="badge"
+                name="assignment"
                 size={28}
                 color={colors.brand.accent}
               />
@@ -341,7 +310,7 @@ function UploadCard({ label, state, uri, onPick, colors }: UploadCardProps) {
         >
           <View style={styles.footerLabelGroup}>
             <MaterialIcons
-              name="credit-card"
+              name="description"
               size={18}
               color={colors.text.muted}
             />

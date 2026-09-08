@@ -1,3 +1,5 @@
+// app/(onboarding)/status.tsx
+
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -16,7 +18,7 @@ import type { OnboardingStatus } from "../../src/types/auth";
 export default function StatusScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { updateRider } = useAuthStore();
+  const { updateRider, clearAuth } = useAuthStore();
 
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,6 +73,11 @@ export default function StatusScreen() {
       setLoading(false);
     }
   }
+
+  const handleLogout = () => {
+    clearAuth();
+    router.replace("/(auth)/phone");
+  };
 
   if (loading && !status) {
     return (
@@ -180,13 +187,13 @@ export default function StatusScreen() {
             <TouchableOpacity
               style={[styles.fixBtn, { backgroundColor: colors.brand.primary }]}
               onPress={() => {
-                // Navigate to the specific doc screen
+                // Fixed key route logic to direct VEHICLE_RC back to its upload screen
                 const routeMap: Record<string, string> = {
                   DRIVING_LICENSE: "/(onboarding)/doc-driving-license",
                   AADHAAR: "/(onboarding)/doc-aadhar",
                   PAN: "/(onboarding)/doc-pan",
                   PROFILE_PHOTO: "/(onboarding)/doc-live-photo",
-                  VEHICLE_RC: "/(onboarding)/vehicle-details",
+                  VEHICLE_RC: "/(onboarding)/doc-vehicle-rc",
                 };
                 const route = routeMap[doc.group];
                 if (route) router.push(route as any);
@@ -248,11 +255,7 @@ export default function StatusScreen() {
 
         <TouchableOpacity
           style={styles.logoutBtn}
-          onPress={() => {
-            const { useAuthStore } = require("../../src/store/authStore");
-            useAuthStore.getState().clearAuth();
-            router.replace("/(auth)/phone");
-          }}
+          onPress={handleLogout}
           activeOpacity={0.7}
         >
           <Text style={[styles.logoutBtnText, { color: colors.status.error }]}>

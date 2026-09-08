@@ -1,4 +1,5 @@
-// app.config.js
+import "dotenv/config";
+
 export default {
   expo: {
     owner: "your-zeros-and-ones",
@@ -13,12 +14,16 @@ export default {
     ios: {
       supportsTablet: false,
       bundleIdentifier: "in.cureli.delivery",
+      buildNumber: "1",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription:
-          "Cureli Delivery needs your location for navigation.",
+          "Cureli Delivery needs your location for navigation and tracking deliveries.",
         NSLocationAlwaysAndWhenInUseUsageDescription:
-          "Cureli Delivery needs your location for navigation.",
+          "Cureli Delivery needs your location for navigation and tracking deliveries.",
+      },
+      config: {
+        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
       },
     },
     android: {
@@ -28,12 +33,23 @@ export default {
         monochromeImage: "./assets/images/android-icon-monochrome.png",
       },
       edgeToEdgeEnabled: true,
+      predictiveBackGestureEnabled: false,
       package: "in.cureli.delivery",
+      versionCode: 1,
+      // Uncomment when you download google-services.json for in.cureli.delivery from Firebase:
+      // googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
       permissions: [
         "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
       ],
+      config: {
+        googleMaps: {
+          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
+        },
+      },
     },
     web: {
       output: "static",
@@ -45,8 +61,8 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/splash-icon.png",
-          imageWidth: 150,
+          image: "./assets/images/cureli_rider_logo.png",
+          imageWidth: 160,
           resizeMode: "contain",
           backgroundColor: "#090025",
         },
@@ -56,7 +72,7 @@ export default {
         "expo-location",
         {
           locationWhenInUsePermission:
-            "Cureli Delivery needs your location for navigation.",
+            "Cureli Delivery needs your location for navigation and tracking deliveries.",
           isIosBackgroundLocationEnabled: false,
           isAndroidBackgroundLocationEnabled: false,
         },
@@ -85,6 +101,7 @@ export default {
     ],
     experiments: {
       typedRoutes: true,
+      reactCompiler: true,
     },
     extra: {
       router: {},

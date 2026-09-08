@@ -1,306 +1,780 @@
+// app/(onboarding)/doc-driving-license.tsx
+
+import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { onboardingApi } from "../../src/features/onboarding/api/onboarding.api";
+import { documentCache } from "../../src/lib/documentCache";
 import { useTheme } from "../../src/theme/ThemeContext";
+import { FontFamily } from "../../src/theme/typography";
 
 type UploadState = "empty" | "picked" | "uploading" | "done" | "error";
 
 export default function DocDrivingLicenseScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const router = useRouter();
 
-  const [frontUri, setFrontUri] = useState<string | null>(null);
-  const [frontState, setFrontState] = useState<UploadState>("empty");
-  const [backUri, setBackUri] = useState<string | null>(null);
-  const [backState, setBackState] = useState<UploadState>("empty");
+  // Document States with Cache Integration
+  const [frontUri, setFrontUri] = useState<string | null>(
+    documentCache.getUri("DRIVING_LICENSE", "front"),
+  );
+  const [frontState, setFrontState] = useState<UploadState>(
+    documentCache.has("DRIVING_LICENSE", "front") ? "done" : "empty",
+  );
+  const [backUri, setBackUri] = useState<string | null>(
+    documentCache.getUri("DRIVING_LICENSE", "back"),
+  );
+  const [backState, setBackState] = useState<UploadState>(
+    documentCache.has("DRIVING_LICENSE", "back") ? "done" : "empty",
+  );
   const [error, setError] = useState<string | null>(null);
+
+  // Bottom Sheet Picker State
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [activeSide, setActiveSide] = useState<"front" | "back" | null>(null);
 
   const canContinue = frontState === "done" && backState === "done";
 
-  async function pickImage(
-    cameraOnly: boolean,
-  ): Promise<{ uri: string; name: string; type: string } | null> {
+  // Safe Stack-Aware Back Navigation
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(onboarding)/vehicle-details");
+    }
+  };
+
+  // Request Permissions & Launch Source
+  async function launchSource(source: "camera" | "gallery") {
+    setPickerVisible(false);
     let result;
 
-    if (cameraOnly) {
-      result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ["images"],
-        quality: 0.8,
-      });
-    } else {
-      // Show choice
-      return new Promise((resolve) => {
-        Alert.alert("Choose source", "", [
-          {
-            text: "Camera",
-            onPress: async () => {
-              const r = await ImagePicker.launchCameraAsync({
-                mediaTypes: ["images"],
-                quality: 0.8,
-              });
-              if (!r.canceled && r.assets[0]) {
-                resolve({
-                  uri: r.assets[0].uri,
-                  name: "photo.jpg",
-                  type: r.assets[0].mimeType || "image/jpeg",
-                });
-              } else resolve(null);
-            },
-          },
-          {
-            text: "Gallery",
-            onPress: async () => {
-              const r = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ["images"],
-                quality: 0.8,
-              });
-              if (!r.canceled && r.assets[0]) {
-                resolve({
-                  uri: r.assets[0].uri,
-                  name: "photo.jpg",
-                  type: r.assets[0].mimeType || "image/jpeg",
-                });
-              } else resolve(null);
-            },
-          },
-          { text: "Cancel", style: "cancel", onPress: () => resolve(null) },
-        ]);
-      });
-    }
+    try {
+      if (source === "camera") {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          setError("Camera permission is required to snap license photo.");
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"],
+          quality: 0.8,
+        });
+      } else {
+        const { status } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          setError("Gallery permission is required to choose photos.");
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          quality: 0.8,
+        });
+      }
 
-    if (result && !result.canceled && result.assets[0]) {
-      return {
-        uri: result.assets[0].uri,
-        name: "photo.jpg",
-        type: result.assets[0].mimeType || "image/jpeg",
-      };
+      if (!result.canceled && result.assets[0] && activeSide) {
+        const image = {
+          uri: result.assets[0].uri,
+          name: "photo.jpg",
+          type: result.assets[0].mimeType || "image/jpeg",
+        };
+        await uploadSelectedImage(activeSide, image);
+      }
+    } catch (err) {
+      setError("Failed to select image source.");
     }
-    return null;
   }
 
-  async function handlePick(side: "front" | "back") {
+  // Upload Logic with Cache Integration
+  async function uploadSelectedImage(
+    side: "front" | "back",
+    image: { uri: string; name: string; type: string },
+  ) {
     setError(null);
-    const image = await pickImage(false);
-    if (!image) return;
+    const isFront = side === "front";
 
-    if (side === "front") {
+    if (isFront) {
       setFrontUri(image.uri);
       setFrontState("uploading");
-      try {
-        await onboardingApi.uploadDocument(
-          "DRIVING_LICENSE_FRONT",
-          true,
-          image.uri,
-          image.name,
-          image.type,
-        );
-        setFrontState("done");
-      } catch {
-        setFrontState("error");
-        setError("Failed to upload front side.");
-      }
     } else {
       setBackUri(image.uri);
       setBackState("uploading");
-      try {
-        await onboardingApi.uploadDocument(
-          "DRIVING_LICENSE_FRONT",
-          false,
-          image.uri,
-          image.name,
-          image.type,
-        );
-        setBackState("done");
-      } catch {
-        setBackState("error");
-        setError("Failed to upload back side.");
-      }
+    }
+
+    try {
+      await onboardingApi.uploadDocument(
+        "DRIVING_LICENSE_FRONT", // Keep constant value per existing backend flow
+        isFront,
+        image.uri,
+        image.name,
+        image.type,
+      );
+
+      // Cache local URI for immediate restore
+      documentCache.setUri("DRIVING_LICENSE", side, image.uri);
+
+      if (isFront) setFrontState("done");
+      else setBackState("done");
+    } catch (err: any) {
+      if (isFront) setFrontState("error");
+      else setBackState("error");
+      setError(`Failed to upload ${side} side of Driving License.`);
     }
   }
 
+  function handleTriggerPick(side: "front" | "back") {
+    setActiveSide(side);
+    setPickerVisible(true);
+  }
+
   return (
-    <ScrollView
-      style={[styles.root, { backgroundColor: colors.background.page }]}
-      contentContainerStyle={styles.scroll}
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background.page }]}
+      edges={["top", "bottom"]}
     >
-      <View style={styles.progress}>
-        <View
-          style={[
-            styles.progressBar,
-            { backgroundColor: colors.border.default },
-          ]}
-        >
-          <View
-            style={[
-              styles.progressFill,
-              { backgroundColor: colors.brand.primary, width: "70%" },
-            ]}
-          />
+      <View style={styles.flex}>
+        {/* Step Header */}
+        <View style={styles.progressContainer}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBack}
+            hitSlop={12}
+          >
+            <MaterialIcons
+              name="arrow-back"
+              size={20}
+              color={colors.text.muted}
+            />
+            <Text style={[styles.backText, { color: colors.text.muted }]}>
+              Back
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.stepTracker}>
+            {Array.from({ length: 5 }).map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.stepBar,
+                  {
+                    backgroundColor:
+                      index <= 3 ? colors.brand.accent : colors.border.input,
+                  },
+                ]}
+              />
+            ))}
+          </View>
+          <Text style={[styles.stepText, { color: colors.text.muted }]}>
+            Step 4 of 5: Documents
+          </Text>
         </View>
-        <Text style={[styles.stepText, { color: colors.text.muted }]}>
-          Step 4 of 5 — Documents
-        </Text>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.headerBlock}>
+            <Text style={[styles.title, { color: colors.text.primary }]}>
+              Driving License
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.text.muted }]}>
+              Upload a clear photo of both sides of your driving license.
+            </Text>
+          </View>
+
+          <View style={styles.formGroup}>
+            {/* Front Card */}
+            <UploadCard
+              label="License Front Side"
+              state={frontState}
+              uri={frontUri}
+              onPick={() => handleTriggerPick("front")}
+              colors={colors}
+            />
+
+            {/* Back Card */}
+            <UploadCard
+              label="License Back Side"
+              state={backState}
+              uri={backUri}
+              onPick={() => handleTriggerPick("back")}
+              colors={colors}
+            />
+          </View>
+
+          {/* Error Row */}
+          {error && (
+            <View style={styles.errorRow}>
+              <MaterialIcons
+                name="error-outline"
+                size={16}
+                color={colors.status.error}
+              />
+              <Text style={[styles.errorText, { color: colors.status.error }]}>
+                {error}
+              </Text>
+            </View>
+          )}
+
+          {/* Continue Button */}
+          <TouchableOpacity
+            style={[
+              styles.button,
+              {
+                backgroundColor: isDark
+                  ? colors.brand.accent
+                  : colors.brand.primary,
+              },
+              !canContinue && styles.buttonDisabled,
+            ]}
+            onPress={() => router.push("/(onboarding)/doc-vehicle-rc")}
+            disabled={!canContinue}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.buttonText}>Continue</Text>
+            <MaterialIcons name="arrow-forward" size={18} color="#ffffff" />
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
-      <Text style={[styles.title, { color: colors.text.primary }]}>
-        Driving License
-      </Text>
-      <Text style={[styles.subtitle, { color: colors.text.muted }]}>
-        Upload both sides of your driving license
-      </Text>
-
-      <UploadCard
-        label="Front Side"
-        state={frontState}
-        uri={frontUri}
-        onPick={() => handlePick("front")}
-        colors={colors}
+      {/* CUSTOM BOTTOM SHEET PHOTO SOURCE SELECTOR */}
+      <PhotoPickerSheet
+        visible={pickerVisible}
+        onClose={() => setPickerVisible(false)}
+        onSelect={launchSource}
       />
-      <UploadCard
-        label="Back Side"
-        state={backState}
-        uri={backUri}
-        onPick={() => handlePick("back")}
-        colors={colors}
-      />
-
-      {error && (
-        <Text style={[styles.error, { color: colors.status.error }]}>
-          {error}
-        </Text>
-      )}
-
-      <TouchableOpacity
-        style={[
-          styles.button,
-          {
-            backgroundColor: canContinue
-              ? colors.brand.primary
-              : colors.border.default,
-          },
-        ]}
-        onPress={() => router.push("/(onboarding)/doc-aadhar")}
-        disabled={!canContinue}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.buttonText}>Continue</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
-// ── Reusable Upload Card ──────────────────────────────────────
+// ── REUSABLE CUSTOM UPLOAD CARD ──────────────────────────────────────
 
-function UploadCard({
-  label,
-  state,
-  uri,
-  onPick,
-  colors,
-}: {
+interface UploadCardProps {
   label: string;
   state: UploadState;
   uri: string | null;
   onPick: () => void;
   colors: any;
-}) {
-  return (
-    <TouchableOpacity
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.background.card,
-          borderColor:
-            state === "done"
-              ? "#22c55e"
-              : state === "error"
-                ? colors.status.error
-                : colors.border.default,
-        },
-      ]}
-      onPress={onPick}
-      disabled={state === "uploading"}
-      activeOpacity={0.7}
-    >
-      {uri && state !== "empty" ? (
-        <Image source={{ uri }} style={styles.preview} />
-      ) : (
-        <View style={styles.placeholder}>
-          <Text style={{ fontSize: 32 }}>📄</Text>
-          <Text style={[styles.placeholderText, { color: colors.text.muted }]}>
-            {label}
-          </Text>
-        </View>
-      )}
+}
 
-      <View style={styles.cardFooter}>
-        <Text style={[styles.cardLabel, { color: colors.text.primary }]}>
-          {label}
-        </Text>
-        {state === "uploading" && (
-          <ActivityIndicator size="small" color={colors.brand.primary} />
+function UploadCard({ label, state, uri, onPick, colors }: UploadCardProps) {
+  const isDone = state === "done";
+  const isError = state === "error";
+  const isUploading = state === "uploading";
+
+  return (
+    <View style={styles.cardContainer}>
+      <TouchableOpacity
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.background.input,
+            borderColor: isDone
+              ? colors.status.success
+              : isError
+                ? colors.status.error
+                : colors.border.input,
+          },
+        ]}
+        onPress={onPick}
+        disabled={isUploading}
+        activeOpacity={0.8}
+      >
+        {uri ? (
+          <View style={styles.previewContainer}>
+            <Image source={{ uri }} style={styles.preview} />
+            {isUploading && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="small" color="#ffffff" />
+                <Text style={styles.loadingText}>Uploading image...</Text>
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={styles.placeholder}>
+            <View
+              style={[
+                styles.iconBadge,
+                { backgroundColor: colors.background.tint },
+              ]}
+            >
+              <MaterialIcons
+                name="cloud-upload"
+                size={28}
+                color={colors.brand.accent}
+              />
+            </View>
+            <Text
+              style={[styles.placeholderTitle, { color: colors.text.primary }]}
+            >
+              {label}
+            </Text>
+            <Text style={[styles.placeholderSub, { color: colors.text.faint }]}>
+              Supports PNG, JPG up to 5MB
+            </Text>
+          </View>
         )}
-        {state === "done" && (
-          <Text style={{ color: "#22c55e", fontSize: 18 }}>✓</Text>
-        )}
-        {state === "error" && (
-          <Text style={{ color: colors.status.error, fontSize: 13 }}>
-            Retry
-          </Text>
-        )}
-        {state === "empty" && (
-          <Text style={{ color: colors.brand.primary, fontSize: 13 }}>
-            Upload
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
+
+        {/* Footer Details */}
+        <View
+          style={[
+            styles.cardFooter,
+            {
+              borderTopColor: colors.border.input,
+              borderTopWidth: uri ? 1 : 0,
+            },
+          ]}
+        >
+          <View style={styles.footerLabelGroup}>
+            <MaterialIcons
+              name="card-membership"
+              size={18}
+              color={colors.text.muted}
+            />
+            <Text style={[styles.cardLabel, { color: colors.text.primary }]}>
+              {label}
+            </Text>
+          </View>
+
+          {isDone && (
+            <View style={styles.statusBadge}>
+              <MaterialIcons
+                name="check-circle"
+                size={18}
+                color={colors.status.success}
+              />
+              <Text
+                style={[styles.statusText, { color: colors.status.success }]}
+              >
+                Verified
+              </Text>
+            </View>
+          )}
+
+          {isError && (
+            <View style={styles.statusBadge}>
+              <MaterialIcons
+                name="error"
+                size={18}
+                color={colors.status.error}
+              />
+              <Text style={[styles.statusText, { color: colors.status.error }]}>
+                Retry
+              </Text>
+            </View>
+          )}
+
+          {state === "empty" && (
+            <View style={styles.actionBadge}>
+              <Text style={[styles.actionText, { color: colors.brand.accent }]}>
+                Upload
+              </Text>
+              <MaterialIcons
+                name="add-a-photo"
+                size={14}
+                color={colors.brand.accent}
+              />
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    </View>
   );
 }
 
+// ── PHOTO SOURCE SELECTOR MODAL ──────────────────────────────────────
+
+interface PhotoPickerSheetProps {
+  visible: boolean;
+  onClose: () => void;
+  onSelect: (source: "camera" | "gallery") => void;
+}
+
+function PhotoPickerSheet({
+  visible,
+  onClose,
+  onSelect,
+}: PhotoPickerSheetProps) {
+  const { colors } = useTheme();
+
+  if (!visible) return null;
+
+  return (
+    <Modal transparent animationType="slide" visible={visible}>
+      <View style={styles.modalOverlay}>
+        <View
+          style={[
+            styles.modalContent,
+            { backgroundColor: colors.background.elevated },
+          ]}
+        >
+          {/* Header */}
+          <View
+            style={[
+              styles.modalHeader,
+              { borderBottomColor: colors.border.input },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
+              Choose Image Source
+            </Text>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeBtn}
+              hitSlop={12}
+            >
+              <MaterialIcons name="close" size={22} color={colors.text.muted} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Selection Items */}
+          <View style={styles.optionsWrapper}>
+            <TouchableOpacity
+              style={[
+                styles.optionBtn,
+                {
+                  backgroundColor: colors.background.input,
+                  borderColor: colors.border.input,
+                },
+              ]}
+              onPress={() => onSelect("camera")}
+            >
+              <View
+                style={[
+                  styles.optionIconContainer,
+                  { backgroundColor: colors.background.tint },
+                ]}
+              >
+                <MaterialIcons
+                  name="photo-camera"
+                  size={24}
+                  color={colors.brand.accent}
+                />
+              </View>
+              <View style={styles.optionTextContainer}>
+                <Text
+                  style={[styles.optionTitle, { color: colors.text.primary }]}
+                >
+                  Snap using Camera
+                </Text>
+                <Text style={[styles.optionDesc, { color: colors.text.muted }]}>
+                  Take a live clear photo of the document
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.optionBtn,
+                {
+                  backgroundColor: colors.background.input,
+                  borderColor: colors.border.input,
+                },
+              ]}
+              onPress={() => onSelect("gallery")}
+            >
+              <View
+                style={[
+                  styles.optionIconContainer,
+                  { backgroundColor: colors.background.tint },
+                ]}
+              >
+                <MaterialIcons
+                  name="photo-library"
+                  size={24}
+                  color={colors.brand.accent}
+                />
+              </View>
+              <View style={styles.optionTextContainer}>
+                <Text
+                  style={[styles.optionTitle, { color: colors.text.primary }]}
+                >
+                  Select from Gallery
+                </Text>
+                <Text style={[styles.optionDesc, { color: colors.text.muted }]}>
+                  Choose a document photo from library
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Cancel button */}
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[
+                styles.modalFooterBtn,
+                { borderColor: colors.border.input, borderWidth: 1 },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.modalFooterBtnText,
+                  { color: colors.text.muted },
+                ]}
+              >
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ── DESIGN STYLES ──────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  progress: { paddingTop: 60, paddingHorizontal: 24, gap: 6 },
-  progressBar: { height: 4, borderRadius: 2 },
-  progressFill: { height: 4, borderRadius: 2 },
-  stepText: { fontSize: 12, fontWeight: "500" },
-  scroll: { padding: 24, gap: 12, paddingBottom: 40 },
-  title: { fontSize: 24, fontWeight: "700", marginTop: 8 },
-  subtitle: { fontSize: 14, lineHeight: 20, marginBottom: 4 },
-  card: { borderWidth: 1.5, borderRadius: 14, overflow: "hidden" },
-  preview: { width: "100%", height: 180, resizeMode: "cover" },
+  safe: { flex: 1 },
+  flex: { flex: 1 },
+  progressContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 8,
+    gap: 12,
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    paddingVertical: 4,
+  },
+  backText: {
+    fontSize: 14,
+    fontFamily: FontFamily.medium,
+  },
+  stepTracker: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  stepBar: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+  },
+  stepText: {
+    fontSize: 12,
+    fontFamily: FontFamily.semiBold,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 40,
+    gap: 24,
+  },
+  headerBlock: {
+    gap: 4,
+  },
+  title: {
+    fontSize: 26,
+    fontFamily: FontFamily.bold,
+    lineHeight: 32,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontFamily: FontFamily.regular,
+    lineHeight: 22,
+  },
+  formGroup: {
+    gap: 16,
+  },
+  cardContainer: {
+    width: "100%",
+  },
+  card: {
+    borderWidth: 1.5,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
   placeholder: {
-    height: 120,
+    height: 140,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    gap: 8,
+  },
+  iconBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+  },
+  placeholderTitle: {
+    fontSize: 14,
+    fontFamily: FontFamily.bold,
+  },
+  placeholderSub: {
+    fontSize: 11,
+    fontFamily: FontFamily.regular,
+  },
+  previewContainer: {
+    position: "relative",
+    width: "100%",
+    height: 180,
+  },
+  preview: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.65)",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
   },
-  placeholderText: { fontSize: 14 },
+  loadingText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontFamily: FontFamily.bold,
+  },
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 14,
   },
-  cardLabel: { fontSize: 15, fontWeight: "600" },
-  error: { fontSize: 13 },
-  button: {
-    height: 52,
+  footerLabelGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  cardLabel: {
+    fontSize: 14,
+    fontFamily: FontFamily.semiBold,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    fontFamily: FontFamily.bold,
+  },
+  actionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  actionText: {
+    fontSize: 12,
+    fontFamily: FontFamily.bold,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 36,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 18,
+    borderBottomWidth: 1.5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: FontFamily.bold,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  optionsWrapper: {
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    gap: 12,
+  },
+  optionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  optionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  optionTextContainer: {
+    flex: 1,
+    gap: 2,
+  },
+  optionTitle: {
+    fontSize: 14,
+    fontFamily: FontFamily.bold,
+  },
+  optionDesc: {
+    fontSize: 11,
+    fontFamily: FontFamily.regular,
+  },
+  modalFooter: {
+    paddingHorizontal: 24,
+  },
+  modalFooterBtn: {
+    width: "100%",
+    paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 12,
   },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  modalFooterBtnText: {
+    fontSize: 15,
+    fontFamily: FontFamily.bold,
+  },
+  errorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: -8,
+  },
+  errorText: {
+    fontSize: 13,
+    fontFamily: FontFamily.medium,
+  },
+  button: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginTop: 4,
+  },
+  buttonDisabled: {
+    opacity: 0.45,
+  },
+  buttonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontFamily: FontFamily.bold,
+  },
 });
