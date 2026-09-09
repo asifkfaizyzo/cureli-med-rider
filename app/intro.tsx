@@ -1,33 +1,33 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { useTheme } from "@/src/theme/ThemeContext";
-import { MMKV } from 'react-native-mmkv';
-
-const storage = new MMKV();
-const { width } = Dimensions.get('window');
+} from "react-native";
+import { useRouter } from "expo-router";
+import { useTheme } from "../src/theme/ThemeContext";
+import { introStorage } from "../src/lib/mmkvStorage";
+import { FontFamily } from "../src/theme/typography";
 
 const SLIDES = [
   {
-    title: 'Deliver Medicines,\nEarn Daily',
-    subtitle: 'Join Cureli\'s delivery fleet and start earning from day one. Flexible hours, instant payouts.',
-    emoji: '💊',
+    title: "Deliver Medicines,\nEarn Daily",
+    subtitle:
+      "Join Cureli's delivery fleet and start earning from day one. Flexible hours, instant payouts.",
+    emoji: "💊",
   },
   {
-    title: 'Your Schedule,\nYour Rules',
-    subtitle: 'Go online when you want. Accept orders near you. No forced shifts, no penalties.',
-    emoji: '🏍️',
+    title: "Your Schedule,\nYour Rules",
+    subtitle:
+      "Go online when you want. Accept orders near you. No forced shifts, no penalties.",
+    emoji: "🏍️",
   },
   {
-    title: 'Grow With\nCureli',
-    subtitle: 'Earn bonuses, incentives, and ratings that unlock higher payouts over time.',
-    emoji: '📈',
+    title: "Grow With\nCureli",
+    subtitle:
+      "Earn bonuses, incentives, and ratings that unlock higher payouts over time.",
+    emoji: "📈",
   },
 ];
 
@@ -39,8 +39,8 @@ export default function IntroScreen() {
   const isLast = current === SLIDES.length - 1;
 
   function finish() {
-    storage.set('has_seen_intro', true);
-    router.replace('/(auth)/phone');
+    introStorage.markSeen();
+    router.replace("/(auth)/login");
   }
 
   function next() {
@@ -56,8 +56,14 @@ export default function IntroScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background.page }]}>
       {/* Skip */}
-      <TouchableOpacity style={styles.skipBtn} onPress={finish} activeOpacity={0.7}>
-        <Text style={[styles.skipText, { color: colors.text.muted }]}>Skip</Text>
+      <TouchableOpacity
+        style={styles.skipBtn}
+        onPress={finish}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.skipText, { color: colors.text.muted }]}>
+          Skip
+        </Text>
       </TouchableOpacity>
 
       {/* Content */}
@@ -80,7 +86,7 @@ export default function IntroScreen() {
               styles.dot,
               {
                 backgroundColor:
-                  i === current ? colors.brand.primary : colors.border.default,
+                  i === current ? colors.brand.accent : colors.border.default,
                 width: i === current ? 24 : 8,
               },
             ]}
@@ -90,12 +96,15 @@ export default function IntroScreen() {
 
       {/* Button */}
       <TouchableOpacity
-        style={[styles.button, { backgroundColor: colors.brand.primary }]}
+        style={[
+          styles.button,
+          { backgroundColor: colors.brand.primary },
+        ]}
         onPress={next}
         activeOpacity={0.8}
       >
         <Text style={styles.buttonText}>
-          {isLast ? 'Get Started' : 'Next'}
+          {isLast ? "Get Started" : "Next"}
         </Text>
       </TouchableOpacity>
     </View>
@@ -108,18 +117,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   skipBtn: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     marginTop: 60,
     padding: 8,
   },
   skipText: {
     fontSize: 15,
-    fontWeight: '500',
+    fontFamily: FontFamily.medium,
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     gap: 16,
   },
   emoji: {
@@ -128,20 +137,21 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '800',
-    textAlign: 'center',
+    fontFamily: FontFamily.bold,
+    textAlign: "center",
     lineHeight: 36,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
-    textAlign: 'center',
+    fontFamily: FontFamily.regular,
+    textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: 16,
   },
   dots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     gap: 8,
     marginBottom: 24,
   },
@@ -152,13 +162,13 @@ const styles = StyleSheet.create({
   button: {
     height: 54,
     borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 40,
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
   },
 });

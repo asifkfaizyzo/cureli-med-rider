@@ -1,14 +1,23 @@
-// src/types/auth.ts
-
 export type RiderType = "INDEPENDENT" | "TEAM";
 
 export type RiderStatus =
-  | "DRAFT" // ← Added DRAFT state
+  | "DRAFT"
   | "PENDING_REVIEW"
   | "ACTIVE"
   | "SUSPENDED"
   | "BLOCKED"
   | "REJECTED";
+
+export type OnboardingStep =
+  | "PERSONAL_DETAILS"
+  | "LOCATION"
+  | "VEHICLE_DETAILS"
+  | "RC_UPLOAD"
+  | "DL_UPLOAD"
+  | "AADHAAR_UPLOAD"
+  | "PAN_UPLOAD"
+  | "LIVE_PHOTO"
+  | "COMPLETED";
 
 export type DocumentGroup =
   | "DRIVING_LICENSE"
@@ -30,8 +39,11 @@ export interface RiderDocument {
   hasBack: boolean;
   status: DocumentStatus;
   rejection_reason: string | null;
+  was_rejected_this_cycle: boolean;
   has_front: boolean;
   has_back: boolean | null;
+  front_url: string | null;
+  back_url: string | null;
   uploaded_at: string | null;
   resubmission_count?: number;
 }
@@ -68,6 +80,13 @@ export interface RiderProfile {
   created_at: string;
   last_seen_at: string | null;
   documents: RiderDocument[];
+
+  // ── NEW: Onboarding tracking ────────────────
+  onboarding_step: OnboardingStep;
+  submitted_for_review: boolean;
+  is_resubmission: boolean;
+
+  // ── Computed flags (kept for compat) ────────
   has_personal_details: boolean;
   has_location: boolean;
   has_vehicle_details: boolean;
@@ -123,11 +142,35 @@ export interface OnboardingSteps {
 export interface OnboardingStatus {
   rider_type: RiderType;
   status: RiderStatus;
-  is_complete: boolean;
-  next_step: string | null;
-  steps: OnboardingSteps;
+  onboarding_step: OnboardingStep;
+  submitted_for_review: boolean;
+  is_resubmission: boolean;
+  personal_details: {
+    full_name: string | null;
+    email: string | null;
+    date_of_birth: string | null;
+    sex: string | null;
+  } | null;
+  location: {
+    current_city: string | null;
+    residential_address: string | null;
+    preferred_lat: number | null;
+    preferred_lng: number | null;
+    preferred_address: string | null;
+  } | null;
+  vehicle_details: {
+    vehicle_type: string | null;
+    vehicle_number: string | null;
+    vehicle_make_model: string | null;
+  } | null;
+  bank_details: {
+    has_bank_details: boolean;
+    bank_holder_name: string | null;
+    bank_account_last4: string | null;
+    bank_verified: boolean;
+  } | null;
+  terms_accepted: boolean;
   documents: RiderDocument[];
-  all_docs_uploaded: boolean;
-  all_docs_approved: boolean;
-  any_doc_rejected: boolean;
+  rejected_steps: OnboardingStep[];
+  next_rejected_step: OnboardingStep | null;
 }

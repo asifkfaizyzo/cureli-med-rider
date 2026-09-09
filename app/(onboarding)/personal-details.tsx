@@ -1,4 +1,4 @@
-// app/(onboarding)/personal-details.tsx
+//app\(onboarding)\personal-details.tsx
 
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -17,7 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { OnboardingWrapper } from "../../src/components/OnboardingWrapper";
 import { onboardingApi } from "../../src/features/onboarding/api/onboarding.api";
 import { useAuthStore } from "../../src/store/authStore";
 import { useTheme } from "../../src/theme/ThemeContext";
@@ -43,7 +43,7 @@ const MONTH_NAMES = [
 export default function PersonalDetailsScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
-  const { updateRider, clearAuth } = useAuthStore();
+  const { updateRider } = useAuthStore();
 
   // Form Fields
   const [name, setName] = useState("");
@@ -53,23 +53,47 @@ export default function PersonalDetailsScreen() {
 
   // UI States
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Track field touch status for inline validations
+  // Track field touch status
   const [touched, setTouched] = useState({
     name: false,
     email: false,
     dob: false,
   });
 
+  // ── Load existing data on mount ──────────────────────────
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const status = await onboardingApi.getStatus();
+        if (status.personal_details) {
+          setName(status.personal_details.full_name || "");
+          setEmail(status.personal_details.email || "");
+          if (status.personal_details.date_of_birth) {
+            setDob(new Date(status.personal_details.date_of_birth));
+          }
+          if (status.personal_details.sex) {
+            setGender(status.personal_details.sex);
+          }
+        }
+      } catch {
+        // Silent fail — user can still fill fresh
+      } finally {
+        setInitialLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
   // Validations
-  const isNameValid = name.trim().length >= 3;
+  const isNameValid = name.trim().length >= 2;
   const isEmailValid = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(
     email.trim(),
   );
 
-  // Age calculation helper
   const calculateAge = (birthDate: Date) => {
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -93,18 +117,7 @@ export default function PersonalDetailsScreen() {
     const yyyy = date.getFullYear();
     const mm = String(date.getMonth() + 1).padStart(2, "0");
     const dd = String(date.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`; // YYYY-MM-DD
-  };
-
-  // Safe Stack-Aware Back Navigation
-  const handleBack = () => {
-    Keyboard.dismiss();
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      clearAuth(); // Log out securely
-      router.replace("/(auth)/login"); // Return to login screen
-    }
+    return `${yyyy}-${mm}-${dd}`;
   };
 
   async function handleSave() {
@@ -129,9 +142,10 @@ export default function PersonalDetailsScreen() {
         date_of_birth: formattedDob,
         sex: gender,
         has_personal_details: true,
+        onboarding_step: "LOCATION",
       });
 
-      router.push("/(onboarding)/location");
+      router.replace("/(onboarding)/location");
     } catch (err: any) {
       setError(
         err?.response?.data?.message ??
@@ -143,55 +157,23 @@ export default function PersonalDetailsScreen() {
     }
   }
 
+  if (initialLoading) {
+    return (
+      <OnboardingWrapper currentStep="PERSONAL_DETAILS">
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.brand.accent} />
+        </View>
+      </OnboardingWrapper>
+    );
+  }
+
   return (
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: colors.background.page }]}
-      edges={["top", "bottom"]}
-    >
+    <OnboardingWrapper currentStep="PERSONAL_DETAILS">
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        {/* Step Header */}
-        <View style={styles.progressContainer}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            disabled={loading}
-            hitSlop={12}
-          >
-            <MaterialIcons
-              name="arrow-back"
-              size={20}
-              color={colors.text.muted}
-            />
-            <Text style={[styles.backText, { color: colors.text.muted }]}>
-              Back
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.stepTracker}>
-            {Array.from({ length: 5 }).map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.stepBar,
-                  {
-                    backgroundColor:
-                      index === 0 ? colors.brand.accent : colors.border.input,
-                  },
-                ]}
-              />
-            ))}
-          </View>
-          <Text style={[styles.stepText, { color: colors.text.muted }]}>
-            Step 1 of 5: Personal Details
-          </Text>
-        </View>
-
         <ScrollView
-          style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -207,7 +189,7 @@ export default function PersonalDetailsScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            {/* Name Input */}
+            {/* Name */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Full Name *
@@ -236,7 +218,7 @@ export default function PersonalDetailsScreen() {
                   placeholderTextColor={colors.text.faint}
                   value={name}
                   onChangeText={setName}
-                  onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
+                  onBlur={() => setTouched((p) => ({ ...p, name: true }))}
                   autoCapitalize="words"
                   editable={!loading}
                 />
@@ -253,12 +235,12 @@ export default function PersonalDetailsScreen() {
                 <Text
                   style={[styles.fieldError, { color: colors.status.error }]}
                 >
-                  Please enter at least 3 characters
+                  Please enter at least 2 characters
                 </Text>
               )}
             </View>
 
-            {/* Email Input */}
+            {/* Email */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Email Address *
@@ -287,9 +269,7 @@ export default function PersonalDetailsScreen() {
                   placeholderTextColor={colors.text.faint}
                   value={email}
                   onChangeText={setEmail}
-                  onBlur={() =>
-                    setTouched((prev) => ({ ...prev, email: true }))
-                  }
+                  onBlur={() => setTouched((p) => ({ ...p, email: true }))}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -313,7 +293,7 @@ export default function PersonalDetailsScreen() {
               )}
             </View>
 
-            {/* Date of Birth Picker Button */}
+            {/* DOB */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Date of Birth *
@@ -369,7 +349,7 @@ export default function PersonalDetailsScreen() {
               )}
             </View>
 
-            {/* Gender Picker */}
+            {/* Gender */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Gender *
@@ -425,7 +405,6 @@ export default function PersonalDetailsScreen() {
             </View>
           </View>
 
-          {/* Form Level Error Banner */}
           {error && (
             <View style={styles.errorRow}>
               <MaterialIcons
@@ -439,7 +418,6 @@ export default function PersonalDetailsScreen() {
             </View>
           )}
 
-          {/* Continue Button */}
           <TouchableOpacity
             style={[
               styles.button,
@@ -458,7 +436,7 @@ export default function PersonalDetailsScreen() {
               <ActivityIndicator color="#ffffff" size="small" />
             ) : (
               <>
-                <Text style={styles.buttonText}>Continue</Text>
+                <Text style={styles.buttonText}>Save & Continue</Text>
                 <MaterialIcons name="arrow-forward" size={18} color="#ffffff" />
               </>
             )}
@@ -466,25 +444,24 @@ export default function PersonalDetailsScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* CUSTOM WHEEL PICKER MODAL */}
       <CustomDatePickerModal
         visible={showDatePicker}
         initialDate={dob}
         onClose={() => {
           setShowDatePicker(false);
-          setTouched((prev) => ({ ...prev, dob: true }));
+          setTouched((p) => ({ ...p, dob: true }));
         }}
         onConfirm={(selectedDate) => {
           setDob(selectedDate);
           setShowDatePicker(false);
-          setTouched((prev) => ({ ...prev, dob: true }));
+          setTouched((p) => ({ ...p, dob: true }));
         }}
       />
-    </SafeAreaView>
+    </OnboardingWrapper>
   );
 }
 
-// ── CUSTOM DATE PICKER COMPONENT ───────────────────────────────────
+// ── CUSTOM DATE PICKER (unchanged from original) ───────────────
 
 interface CustomDatePickerModalProps {
   visible: boolean;
@@ -501,21 +478,17 @@ function CustomDatePickerModal({
 }: CustomDatePickerModalProps) {
   const { colors } = useTheme();
 
-  // Setup defaults (18 years ago from today)
   const defaultYear = new Date().getFullYear() - 18;
   const defaultDate = initialDate || new Date(defaultYear, 0, 1);
 
-  // Picker States
   const [tempDay, setTempDay] = useState(defaultDate.getDate());
-  const [tempMonth, setTempMonth] = useState(defaultDate.getMonth()); // 0-11
+  const [tempMonth, setTempMonth] = useState(defaultDate.getMonth());
   const [tempYear, setTempYear] = useState(defaultDate.getFullYear());
 
-  // Refs for scrolling FlatLists to current value on open
   const dayRef = useRef<FlatList>(null);
   const monthRef = useRef<FlatList>(null);
   const yearRef = useRef<FlatList>(null);
 
-  // Sync state if initialDate updates while component stays mounted
   useEffect(() => {
     if (visible && initialDate) {
       setTempDay(initialDate.getDate());
@@ -524,38 +497,27 @@ function CustomDatePickerModal({
     }
   }, [visible, initialDate]);
 
-  // Available Years: Restrict to 18+ years ago down to 1950
   const years = useMemo(() => {
     const list = [];
-    const maxYear = new Date().getFullYear() - 18; // Must be 18 to join
-    for (let y = maxYear; y >= 1950; y--) {
-      list.push(y);
-    }
+    const maxYear = new Date().getFullYear() - 18;
+    for (let y = maxYear; y >= 1950; y--) list.push(y);
     return list;
   }, []);
 
-  // Compute days in month dynamically
   const daysInMonth = useMemo(() => {
-    // 0th day of the next month gets us the last day of the target month
     return new Date(tempYear, tempMonth + 1, 0).getDate();
   }, [tempMonth, tempYear]);
 
   const days = useMemo(() => {
     const list = [];
-    for (let d = 1; d <= daysInMonth; d++) {
-      list.push(d);
-    }
+    for (let d = 1; d <= daysInMonth; d++) list.push(d);
     return list;
   }, [daysInMonth]);
 
-  // Auto-correct invalid day if user changes month (e.g. Feb 31st -> Feb 29th)
   useEffect(() => {
-    if (tempDay > daysInMonth) {
-      setTempDay(daysInMonth);
-    }
+    if (tempDay > daysInMonth) setTempDay(daysInMonth);
   }, [daysInMonth, tempDay]);
 
-  // Smooth scroll to selections on Open
   useEffect(() => {
     if (visible) {
       setTimeout(() => {
@@ -586,7 +548,6 @@ function CustomDatePickerModal({
   }, [visible]);
 
   const handleConfirm = () => {
-    // Return custom Date object safely
     onConfirm(new Date(tempYear, tempMonth, tempDay));
   };
 
@@ -601,7 +562,6 @@ function CustomDatePickerModal({
             { backgroundColor: colors.background.elevated },
           ]}
         >
-          {/* Header */}
           <View
             style={[
               styles.modalHeader,
@@ -620,9 +580,7 @@ function CustomDatePickerModal({
             </TouchableOpacity>
           </View>
 
-          {/* List Pickers container */}
           <View style={styles.columnsContainer}>
-            {/* COLUMN: DAY */}
             <View style={styles.pickerColumn}>
               <Text style={[styles.columnLabel, { color: colors.text.faint }]}>
                 Day
@@ -670,7 +628,6 @@ function CustomDatePickerModal({
               />
             </View>
 
-            {/* COLUMN: MONTH */}
             <View style={styles.pickerColumn}>
               <Text style={[styles.columnLabel, { color: colors.text.faint }]}>
                 Month
@@ -718,7 +675,6 @@ function CustomDatePickerModal({
               />
             </View>
 
-            {/* COLUMN: YEAR */}
             <View style={styles.pickerColumn}>
               <Text style={[styles.columnLabel, { color: colors.text.faint }]}>
                 Year
@@ -767,7 +723,6 @@ function CustomDatePickerModal({
             </View>
           </View>
 
-          {/* Footer controls */}
           <View style={styles.modalFooter}>
             <TouchableOpacity
               onPress={onClose}
@@ -804,71 +759,28 @@ function CustomDatePickerModal({
   );
 }
 
-// ── DESIGN STYLES ──────────────────────────────────────────────────
+// ── Styles ──────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   flex: { flex: 1 },
-  progressContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
-    gap: 12,
-  },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    alignSelf: "flex-start",
-    paddingVertical: 4,
-  },
-  backText: {
-    fontSize: 14,
-    fontFamily: FontFamily.medium,
-  },
-  stepTracker: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  stepBar: {
+  loadingContainer: {
     flex: 1,
-    height: 4,
-    borderRadius: 2,
-  },
-  stepText: {
-    fontSize: 12,
-    fontFamily: FontFamily.semiBold,
+    alignItems: "center",
+    justifyContent: "center",
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingBottom: 40,
     gap: 24,
   },
-  headerBlock: {
-    gap: 4,
-  },
-  title: {
-    fontSize: 26,
-    fontFamily: FontFamily.bold,
-    lineHeight: 32,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontFamily: FontFamily.regular,
-    lineHeight: 22,
-  },
-  formGroup: {
-    gap: 16,
-  },
-  inputContainer: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 13,
-    fontFamily: FontFamily.semiBold,
-  },
+  headerBlock: { gap: 4 },
+  title: { fontSize: 24, fontFamily: FontFamily.bold, lineHeight: 30 },
+  subtitle: { fontSize: 14, fontFamily: FontFamily.regular, lineHeight: 22 },
+  formGroup: { gap: 16 },
+  inputContainer: { gap: 6 },
+  label: { fontSize: 13, fontFamily: FontFamily.semiBold },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -876,12 +788,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
   },
-  inputIcon: {
-    paddingLeft: 14,
-  },
-  rightIcon: {
-    paddingRight: 14,
-  },
+  inputIcon: { paddingLeft: 14 },
+  rightIcon: { paddingRight: 14 },
   input: {
     flex: 1,
     fontSize: 15,
@@ -889,19 +797,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 14,
   },
-  dateText: {
-    paddingVertical: 16,
-  },
+  dateText: { paddingVertical: 16 },
   fieldError: {
     fontSize: 11,
     fontFamily: FontFamily.medium,
     marginTop: 2,
     marginLeft: 2,
   },
-  genderRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
+  genderRow: { flexDirection: "row", gap: 10 },
   genderBtn: {
     flex: 1,
     flexDirection: "row",
@@ -911,20 +814,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.5,
   },
-  genderText: {
-    fontSize: 14,
-    fontFamily: FontFamily.bold,
-  },
+  genderText: { fontSize: 14, fontFamily: FontFamily.bold },
   errorRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginTop: -8,
   },
-  errorText: {
-    fontSize: 13,
-    fontFamily: FontFamily.medium,
-  },
+  errorText: { fontSize: 13, fontFamily: FontFamily.medium },
   button: {
     flexDirection: "row",
     alignItems: "center",
@@ -934,16 +831,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginTop: 4,
   },
-  buttonDisabled: {
-    opacity: 0.45,
-  },
-  buttonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontFamily: FontFamily.bold,
-  },
+  buttonDisabled: { opacity: 0.45 },
+  buttonText: { color: "#ffffff", fontSize: 16, fontFamily: FontFamily.bold },
 
-  // CUSTOM DATE PICKER STYLES
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -962,23 +852,15 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     borderBottomWidth: 1.5,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontFamily: FontFamily.bold,
-  },
-  closeBtn: {
-    padding: 4,
-  },
+  modalTitle: { fontSize: 18, fontFamily: FontFamily.bold },
+  closeBtn: { padding: 4 },
   columnsContainer: {
     flexDirection: "row",
     paddingHorizontal: 12,
     height: 240,
     marginTop: 12,
   },
-  pickerColumn: {
-    flex: 1,
-    marginHorizontal: 4,
-  },
+  pickerColumn: { flex: 1, marginHorizontal: 4 },
   columnLabel: {
     textAlign: "center",
     fontSize: 12,
@@ -987,9 +869,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 8,
   },
-  listPadding: {
-    paddingBottom: 24,
-  },
+  listPadding: { paddingBottom: 24 },
   itemBtn: {
     paddingVertical: 12,
     alignItems: "center",
@@ -998,13 +878,8 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
     marginVertical: 2,
   },
-  itemText: {
-    fontSize: 16,
-    fontFamily: FontFamily.medium,
-  },
-  itemTextSelected: {
-    fontFamily: FontFamily.bold,
-  },
+  itemText: { fontSize: 16, fontFamily: FontFamily.medium },
+  itemTextSelected: { fontFamily: FontFamily.bold },
   modalFooter: {
     flexDirection: "row",
     gap: 12,
@@ -1018,8 +893,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  modalFooterBtnText: {
-    fontSize: 15,
-    fontFamily: FontFamily.bold,
-  },
+  modalFooterBtnText: { fontSize: 15, fontFamily: FontFamily.bold },
 });

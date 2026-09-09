@@ -1,4 +1,4 @@
-// app/(onboarding)/bank-details.tsx
+// cureli-rider-app/app/(onboarding)/bank-details.tsx
 
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -27,18 +27,15 @@ export default function BankDetailsScreen() {
   const { updateRider } = useAuthStore();
   const scrollRef = useRef<ScrollView>(null);
 
-  // Form Fields
   const [holderName, setHolderName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [confirmAccountNumber, setConfirmAccountNumber] = useState("");
   const [ifsc, setIfsc] = useState("");
   const [bankName, setBankName] = useState("");
 
-  // UI States
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Track field touch status for inline validations
   const [touched, setTouched] = useState({
     holderName: false,
     bankName: false,
@@ -47,7 +44,6 @@ export default function BankDetailsScreen() {
     confirmAccountNumber: false,
   });
 
-  // Validations
   const isHolderNameValid = holderName.trim().length >= 2;
   const isBankNameValid = bankName.trim().length >= 2;
   const isIfscValid = /^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc);
@@ -63,19 +59,12 @@ export default function BankDetailsScreen() {
     isAccountLengthValid &&
     isMatching;
 
-  // Safe Stack-Aware Back Navigation
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();
     } else {
       router.replace("/(onboarding)/status");
     }
-  };
-
-  const scrollToField = (offset: number) => {
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: offset, animated: true });
-    }, 100);
   };
 
   async function handleSave() {
@@ -99,7 +88,7 @@ export default function BankDetailsScreen() {
         has_bank_details: true,
       });
 
-      router.push("/(onboarding)/terms");
+      router.replace("/(onboarding)/terms");
     } catch (err: any) {
       setError(
         err?.response?.data?.message ??
@@ -119,9 +108,8 @@ export default function BankDetailsScreen() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        {/* Step Header */}
+        {/* Header */}
         <View style={styles.progressContainer}>
           <TouchableOpacity
             style={styles.backButton}
@@ -140,20 +128,15 @@ export default function BankDetailsScreen() {
           </TouchableOpacity>
 
           <View style={styles.stepTracker}>
-            {Array.from({ length: 5 }).map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.stepBar,
-                  {
-                    backgroundColor: colors.brand.accent,
-                  },
-                ]}
-              />
-            ))}
+            <View
+              style={[styles.stepBar, { backgroundColor: colors.brand.accent }]}
+            />
+            <View
+              style={[styles.stepBar, { backgroundColor: colors.border.input }]}
+            />
           </View>
           <Text style={[styles.stepText, { color: colors.text.muted }]}>
-            Step 5 of 5: Bank Details
+            Step 1 of 2: Bank Details
           </Text>
         </View>
 
@@ -175,7 +158,7 @@ export default function BankDetailsScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            {/* Account Holder Name */}
+            {/* Holder Name */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Account Holder Name *
@@ -204,10 +187,7 @@ export default function BankDetailsScreen() {
                   placeholderTextColor={colors.text.faint}
                   value={holderName}
                   onChangeText={setHolderName}
-                  onFocus={() => scrollToField(20)}
-                  onBlur={() =>
-                    setTouched((prev) => ({ ...prev, holderName: true }))
-                  }
+                  onBlur={() => setTouched((p) => ({ ...p, holderName: true }))}
                   autoCapitalize="words"
                   editable={!loading}
                 />
@@ -224,7 +204,7 @@ export default function BankDetailsScreen() {
                 <Text
                   style={[styles.fieldError, { color: colors.status.error }]}
                 >
-                  Please enter a valid holder name (min 2 characters)
+                  Min 2 characters
                 </Text>
               )}
             </View>
@@ -258,10 +238,7 @@ export default function BankDetailsScreen() {
                   placeholderTextColor={colors.text.faint}
                   value={bankName}
                   onChangeText={setBankName}
-                  onFocus={() => scrollToField(100)}
-                  onBlur={() =>
-                    setTouched((prev) => ({ ...prev, bankName: true }))
-                  }
+                  onBlur={() => setTouched((p) => ({ ...p, bankName: true }))}
                   autoCapitalize="words"
                   editable={!loading}
                 />
@@ -278,12 +255,12 @@ export default function BankDetailsScreen() {
                 <Text
                   style={[styles.fieldError, { color: colors.status.error }]}
                 >
-                  Please enter a valid bank name (min 2 characters)
+                  Min 2 characters
                 </Text>
               )}
             </View>
 
-            {/* IFSC Code */}
+            {/* IFSC */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 IFSC Code *
@@ -318,8 +295,7 @@ export default function BankDetailsScreen() {
                   onChangeText={(t) =>
                     setIfsc(t.toUpperCase().replace(/[^A-Z0-9]/g, ""))
                   }
-                  onFocus={() => scrollToField(180)}
-                  onBlur={() => setTouched((prev) => ({ ...prev, ifsc: true }))}
+                  onBlur={() => setTouched((p) => ({ ...p, ifsc: true }))}
                   maxLength={11}
                   autoCapitalize="characters"
                   editable={!loading}
@@ -337,7 +313,7 @@ export default function BankDetailsScreen() {
                 <Text
                   style={[styles.fieldError, { color: colors.status.error }]}
                 >
-                  Enter a valid 11-digit IFSC code (e.g. SBIN0001234)
+                  Enter a valid 11-character IFSC code
                 </Text>
               )}
             </View>
@@ -376,9 +352,8 @@ export default function BankDetailsScreen() {
                   keyboardType="number-pad"
                   value={accountNumber}
                   onChangeText={(t) => setAccountNumber(t.replace(/\D/g, ""))}
-                  onFocus={() => scrollToField(260)}
                   onBlur={() =>
-                    setTouched((prev) => ({ ...prev, accountNumber: true }))
+                    setTouched((p) => ({ ...p, accountNumber: true }))
                   }
                   maxLength={18}
                   editable={!loading}
@@ -396,12 +371,12 @@ export default function BankDetailsScreen() {
                 <Text
                   style={[styles.fieldError, { color: colors.status.error }]}
                 >
-                  Account number must be between 9 to 18 digits
+                  9 to 18 digits
                 </Text>
               )}
             </View>
 
-            {/* Confirm Account Number */}
+            {/* Confirm Account */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Confirm Account Number *
@@ -437,10 +412,9 @@ export default function BankDetailsScreen() {
                   onChangeText={(t) =>
                     setConfirmAccountNumber(t.replace(/\D/g, ""))
                   }
-                  onFocus={() => scrollToField(340)}
                   onBlur={() =>
-                    setTouched((prev) => ({
-                      ...prev,
+                    setTouched((p) => ({
+                      ...p,
                       confirmAccountNumber: true,
                     }))
                   }
@@ -466,7 +440,6 @@ export default function BankDetailsScreen() {
             </View>
           </View>
 
-          {/* Form Level Error Banner */}
           {error && (
             <View style={styles.errorRow}>
               <MaterialIcons
@@ -480,7 +453,6 @@ export default function BankDetailsScreen() {
             </View>
           )}
 
-          {/* Action Button */}
           <TouchableOpacity
             style={[
               styles.button,
@@ -499,7 +471,7 @@ export default function BankDetailsScreen() {
               <ActivityIndicator color="#ffffff" size="small" />
             ) : (
               <>
-                <Text style={styles.buttonText}>Submit Details</Text>
+                <Text style={styles.buttonText}>Save & Continue</Text>
                 <MaterialIcons name="arrow-forward" size={18} color="#ffffff" />
               </>
             )}
@@ -526,23 +498,10 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     paddingVertical: 4,
   },
-  backText: {
-    fontSize: 14,
-    fontFamily: FontFamily.medium,
-  },
-  stepTracker: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  stepBar: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-  },
-  stepText: {
-    fontSize: 12,
-    fontFamily: FontFamily.semiBold,
-  },
+  backText: { fontSize: 14, fontFamily: FontFamily.medium },
+  stepTracker: { flexDirection: "row", gap: 6 },
+  stepBar: { flex: 1, height: 4, borderRadius: 2 },
+  stepText: { fontSize: 12, fontFamily: FontFamily.semiBold },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
@@ -550,29 +509,12 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     gap: 24,
   },
-  headerBlock: {
-    gap: 4,
-  },
-  title: {
-    fontSize: 26,
-    fontFamily: FontFamily.bold,
-    lineHeight: 32,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontFamily: FontFamily.regular,
-    lineHeight: 22,
-  },
-  formGroup: {
-    gap: 16,
-  },
-  inputContainer: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 13,
-    fontFamily: FontFamily.semiBold,
-  },
+  headerBlock: { gap: 4 },
+  title: { fontSize: 24, fontFamily: FontFamily.bold, lineHeight: 30 },
+  subtitle: { fontSize: 14, fontFamily: FontFamily.regular, lineHeight: 22 },
+  formGroup: { gap: 16 },
+  inputContainer: { gap: 6 },
+  label: { fontSize: 13, fontFamily: FontFamily.semiBold },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -580,12 +522,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
   },
-  inputIcon: {
-    paddingLeft: 14,
-  },
-  rightIcon: {
-    paddingRight: 14,
-  },
+  inputIcon: { paddingLeft: 14 },
+  rightIcon: { paddingRight: 14 },
   input: {
     flex: 1,
     fontSize: 15,
@@ -593,10 +531,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 14,
   },
-  codeField: {
-    fontFamily: FontFamily.bold,
-    letterSpacing: 0.5,
-  },
+  codeField: { fontFamily: FontFamily.bold, letterSpacing: 0.5 },
   fieldError: {
     fontSize: 11,
     fontFamily: FontFamily.medium,
@@ -609,10 +544,7 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: -8,
   },
-  errorText: {
-    fontSize: 13,
-    fontFamily: FontFamily.medium,
-  },
+  errorText: { fontSize: 13, fontFamily: FontFamily.medium },
   button: {
     flexDirection: "row",
     alignItems: "center",
@@ -622,12 +554,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginTop: 4,
   },
-  buttonDisabled: {
-    opacity: 0.45,
-  },
-  buttonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontFamily: FontFamily.bold,
-  },
+  buttonDisabled: { opacity: 0.45 },
+  buttonText: { color: "#ffffff", fontSize: 16, fontFamily: FontFamily.bold },
 });

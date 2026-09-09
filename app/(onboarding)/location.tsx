@@ -1,9 +1,8 @@
-// app/(onboarding)/location.tsx
-
+//app\(onboarding)\location.tsx
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { OnboardingWrapper } from "../../src/components/OnboardingWrapper";
 import { onboardingApi } from "../../src/features/onboarding/api/onboarding.api";
 import { useAuthStore } from "../../src/store/authStore";
 import { useTheme } from "../../src/theme/ThemeContext";
@@ -38,27 +37,37 @@ export default function LocationScreen() {
   // UI States
   const [locating, setLocating] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Track field touch status for inline validations
-  const [touched, setTouched] = useState({
-    city: false,
-    address: false,
-  });
+  const [touched, setTouched] = useState({ city: false, address: false });
 
-  // Validations
-  const isCityValid = city.trim().length >= 2;
-  const isAddressValid = address.trim().length >= 10;
-  const formIsValid = isCityValid && isAddressValid;
-
-  // Safe Stack-Aware Back Navigation
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace("/(onboarding)/personal-details");
+  // ── Load existing data ──────────────────────────────────
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const status = await onboardingApi.getStatus();
+        if (status.location) {
+          setCity(status.location.current_city || "");
+          setAddress(status.location.residential_address || "");
+          setPrefAddress(status.location.preferred_address || "");
+          if (status.location.preferred_lat)
+            setLat(status.location.preferred_lat);
+          if (status.location.preferred_lng)
+            setLng(status.location.preferred_lng);
+        }
+      } catch {
+        // silent fail
+      } finally {
+        setInitialLoading(false);
+      }
     }
-  };
+    loadData();
+  }, []);
+
+  const isCityValid = city.trim().length >= 2;
+  const isAddressValid = address.trim().length >= 5;
+  const formIsValid = isCityValid && isAddressValid;
 
   async function useCurrentLocation() {
     Keyboard.dismiss();
@@ -68,7 +77,7 @@ export default function LocationScreen() {
       if (status !== "granted") {
         Alert.alert(
           "Permission Required",
-          "Please enable location permissions in your device settings to use this feature.",
+          "Please enable location permissions in your device settings.",
         );
         return;
       }
@@ -80,7 +89,6 @@ export default function LocationScreen() {
       setLat(loc.coords.latitude);
       setLng(loc.coords.longitude);
 
-      // Reverse geocode
       const [geo] = await Location.reverseGeocodeAsync({
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
@@ -93,11 +101,11 @@ export default function LocationScreen() {
         setPrefAddress(resolved);
         if (!city && geo.city) {
           setCity(geo.city);
-          setTouched((prev) => ({ ...prev, city: true }));
+          setTouched((p) => ({ ...p, city: true }));
         }
         if (!address) {
           setAddress(resolved);
-          setTouched((prev) => ({ ...prev, address: true }));
+          setTouched((p) => ({ ...p, address: true }));
         }
       }
     } catch {
@@ -126,9 +134,10 @@ export default function LocationScreen() {
         current_city: city.trim(),
         residential_address: address.trim(),
         has_location: true,
+        onboarding_step: "VEHICLE_DETAILS",
       });
 
-      router.push("/(onboarding)/vehicle-details");
+      router.replace("/(onboarding)/vehicle-details");
     } catch (err: any) {
       setError(
         err?.response?.data?.message ??
@@ -140,55 +149,23 @@ export default function LocationScreen() {
     }
   }
 
+  if (initialLoading) {
+    return (
+      <OnboardingWrapper currentStep="LOCATION">
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.brand.accent} />
+        </View>
+      </OnboardingWrapper>
+    );
+  }
+
   return (
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: colors.background.page }]}
-      edges={["top", "bottom"]}
-    >
+    <OnboardingWrapper currentStep="LOCATION">
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        {/* Step Header */}
-        <View style={styles.progressContainer}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            disabled={loading}
-            hitSlop={12}
-          >
-            <MaterialIcons
-              name="arrow-back"
-              size={20}
-              color={colors.text.muted}
-            />
-            <Text style={[styles.backText, { color: colors.text.muted }]}>
-              Back
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.stepTracker}>
-            {Array.from({ length: 5 }).map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.stepBar,
-                  {
-                    backgroundColor:
-                      index <= 1 ? colors.brand.accent : colors.border.input,
-                  },
-                ]}
-              />
-            ))}
-          </View>
-          <Text style={[styles.stepText, { color: colors.text.muted }]}>
-            Step 2 of 5: Location
-          </Text>
-        </View>
-
         <ScrollView
-          style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -204,7 +181,7 @@ export default function LocationScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            {/* City Input */}
+            {/* City */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Current City *
@@ -233,7 +210,7 @@ export default function LocationScreen() {
                   placeholderTextColor={colors.text.faint}
                   value={city}
                   onChangeText={setCity}
-                  onBlur={() => setTouched((prev) => ({ ...prev, city: true }))}
+                  onBlur={() => setTouched((p) => ({ ...p, city: true }))}
                   autoCapitalize="words"
                   editable={!loading}
                 />
@@ -255,7 +232,7 @@ export default function LocationScreen() {
               )}
             </View>
 
-            {/* Residential Address */}
+            {/* Address */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Residential Address *
@@ -284,9 +261,7 @@ export default function LocationScreen() {
                   placeholderTextColor={colors.text.faint}
                   value={address}
                   onChangeText={setAddress}
-                  onBlur={() =>
-                    setTouched((prev) => ({ ...prev, address: true }))
-                  }
+                  onBlur={() => setTouched((p) => ({ ...p, address: true }))}
                   multiline
                   numberOfLines={3}
                   textAlignVertical="top"
@@ -297,12 +272,12 @@ export default function LocationScreen() {
                 <Text
                   style={[styles.fieldError, { color: colors.status.error }]}
                 >
-                  Please provide a detailed address (min 10 characters)
+                  Please provide a detailed address (min 5 characters)
                 </Text>
               )}
             </View>
 
-            {/* Preferred Delivery Area */}
+            {/* Preferred Area */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Preferred Delivery Area
@@ -348,7 +323,6 @@ export default function LocationScreen() {
                 )}
               </TouchableOpacity>
 
-              {/* Resolved Location Card */}
               {lat && lng && (
                 <View
                   style={[
@@ -395,7 +369,6 @@ export default function LocationScreen() {
             </View>
           </View>
 
-          {/* Form Level Error Banner */}
           {error && (
             <View style={styles.errorRow}>
               <MaterialIcons
@@ -409,7 +382,6 @@ export default function LocationScreen() {
             </View>
           )}
 
-          {/* Continue Button */}
           <TouchableOpacity
             style={[
               styles.button,
@@ -428,84 +400,38 @@ export default function LocationScreen() {
               <ActivityIndicator color="#ffffff" size="small" />
             ) : (
               <>
-                <Text style={styles.buttonText}>Continue</Text>
+                <Text style={styles.buttonText}>Save & Continue</Text>
                 <MaterialIcons name="arrow-forward" size={18} color="#ffffff" />
               </>
             )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </OnboardingWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   flex: { flex: 1 },
-  progressContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
-    gap: 12,
-  },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    alignSelf: "flex-start",
-    paddingVertical: 4,
-  },
-  backText: {
-    fontSize: 14,
-    fontFamily: FontFamily.medium,
-  },
-  stepTracker: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  stepBar: {
+  loadingContainer: {
     flex: 1,
-    height: 4,
-    borderRadius: 2,
-  },
-  stepText: {
-    fontSize: 12,
-    fontFamily: FontFamily.semiBold,
+    alignItems: "center",
+    justifyContent: "center",
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingBottom: 40,
     gap: 24,
   },
-  headerBlock: {
-    gap: 4,
-  },
-  title: {
-    fontSize: 26,
-    fontFamily: FontFamily.bold,
-    lineHeight: 32,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontFamily: FontFamily.regular,
-    lineHeight: 22,
-  },
-  formGroup: {
-    gap: 16,
-  },
-  inputContainer: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 13,
-    fontFamily: FontFamily.semiBold,
-  },
-  optionalTag: {
-    fontSize: 11,
-    fontFamily: FontFamily.regular,
-  },
+  headerBlock: { gap: 4 },
+  title: { fontSize: 24, fontFamily: FontFamily.bold, lineHeight: 30 },
+  subtitle: { fontSize: 14, fontFamily: FontFamily.regular, lineHeight: 22 },
+  formGroup: { gap: 16 },
+  inputContainer: { gap: 6 },
+  label: { fontSize: 13, fontFamily: FontFamily.semiBold },
+  optionalTag: { fontSize: 11, fontFamily: FontFamily.regular },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -513,12 +439,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
   },
-  inputIcon: {
-    paddingLeft: 14,
-  },
-  rightIcon: {
-    paddingRight: 14,
-  },
+  inputIcon: { paddingLeft: 14 },
+  rightIcon: { paddingRight: 14 },
   input: {
     flex: 1,
     fontSize: 15,
@@ -534,10 +456,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     minHeight: 100,
   },
-  textareaIcon: {
-    paddingLeft: 14,
-    paddingTop: 16,
-  },
+  textareaIcon: { paddingLeft: 14, paddingTop: 16 },
   textarea: {
     flex: 1,
     fontSize: 15,
@@ -563,10 +482,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderStyle: "dashed",
   },
-  locateBtnText: {
-    fontSize: 14,
-    fontFamily: FontFamily.bold,
-  },
+  locateBtnText: { fontSize: 14, fontFamily: FontFamily.bold },
   locationCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -583,29 +499,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  locationDetails: {
-    flex: 1,
-    gap: 2,
-  },
+  locationDetails: { flex: 1, gap: 2 },
   locationTitle: {
     fontSize: 13,
     fontFamily: FontFamily.semiBold,
     lineHeight: 18,
   },
-  locationCoords: {
-    fontSize: 11,
-    fontFamily: FontFamily.medium,
-  },
+  locationCoords: { fontSize: 11, fontFamily: FontFamily.medium },
   errorRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginTop: -8,
   },
-  errorText: {
-    fontSize: 13,
-    fontFamily: FontFamily.medium,
-  },
+  errorText: { fontSize: 13, fontFamily: FontFamily.medium },
   button: {
     flexDirection: "row",
     alignItems: "center",
@@ -615,12 +522,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginTop: 4,
   },
-  buttonDisabled: {
-    opacity: 0.45,
-  },
-  buttonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontFamily: FontFamily.bold,
-  },
+  buttonDisabled: { opacity: 0.45 },
+  buttonText: { color: "#ffffff", fontSize: 16, fontFamily: FontFamily.bold },
 });

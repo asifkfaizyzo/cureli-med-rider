@@ -1,5 +1,3 @@
-// src/store/authStore.ts
-
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { mmkvStorage } from "../lib/mmkvStorage";
@@ -22,7 +20,7 @@ interface AuthState {
   updateRider: (partial: Partial<RiderProfile>) => void;
   setAccessToken: (token: string) => void;
   clearAuth: () => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -40,19 +38,18 @@ export const useAuthStore = create<AuthState>()(
 
         if (accessToken && refreshToken && rider) {
           try {
-            // Dynamic import bypasses axios circular import loops on startup
             const { authApi } = require("../features/auth/api/auth.api");
             const updatedRider = await authApi.getMe();
             set({
               rider: updatedRider,
               status: "authenticated",
             });
-          } catch (error) {
-            // Clear storage if token validation fails completely
+          } catch {
             set({
               rider: null,
               accessToken: null,
               refreshToken: null,
+              tempToken: null,
               status: "unauthenticated",
             });
           }
@@ -88,7 +85,13 @@ export const useAuthStore = create<AuthState>()(
           status: "unauthenticated",
         }),
 
-      logout: () => {
+      logout: async () => {
+        try {
+          const { authApi } = require("../features/auth/api/auth.api");
+          await authApi.logout();
+        } catch {
+          // Ignore — clear local state regardless
+        }
         set({
           rider: null,
           accessToken: null,
@@ -101,6 +104,13 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "rider-auth-store",
       storage: mmkvStorage,
+      // Only persist these fields (not status, which should re-check on launch)
+      partialize: (state) => ({
+        rider: state.rider,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        tempToken: state.tempToken,
+      }),
     },
   ),
 );

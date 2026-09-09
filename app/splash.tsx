@@ -1,5 +1,3 @@
-// app/splash.tsx
-
 import { useEffect, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet, Image, Text } from "react-native";
 import { useRouter } from "expo-router";
@@ -7,6 +5,7 @@ import { useAuthStore } from "../src/store/authStore";
 import { useTheme } from "../src/theme/ThemeContext";
 import { authApi } from "../src/features/auth/api/auth.api";
 import { getRouteForRider } from "../src/features/auth/utils/authNavigation";
+import { introStorage } from "../src/lib/mmkvStorage";
 import { FontFamily } from "../src/theme/typography";
 
 export default function Splash() {
@@ -22,19 +21,27 @@ export default function Splash() {
     async function handleRedirection() {
       hasRouted.current = true;
 
+      // 1. First-time user → show intro
+      if (!introStorage.hasSeenIntro()) {
+        router.replace("/intro");
+        return;
+      }
+
+      // 2. Not authenticated → login
       if (status === "unauthenticated" || !accessToken) {
         router.replace("/(auth)/login");
         return;
       }
 
+      // 3. Authenticated → fetch fresh profile, route by onboarding_step
       try {
-        // Silently fetch fresh details from server before making routing decisions
         const rider = await authApi.getMe();
-        setAuth(rider, accessToken, useAuthStore.getState().refreshToken!);
+        const refreshToken = useAuthStore.getState().refreshToken!;
+        setAuth(rider, accessToken, refreshToken);
 
         const targetRoute = getRouteForRider(rider);
         router.replace(targetRoute as any);
-      } catch (err) {
+      } catch {
         clearAuth();
         router.replace("/(auth)/login");
       }

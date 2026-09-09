@@ -1,9 +1,9 @@
-// app/(onboarding)/doc-driving-license.tsx
+// cureli-rider-app/app/(onboarding)/doc-driving-license.tsx
 
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -14,49 +14,68 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { OnboardingWrapper } from "../../src/components/OnboardingWrapper";
 import { onboardingApi } from "../../src/features/onboarding/api/onboarding.api";
 import { documentCache } from "../../src/lib/documentCache";
+import { useAuthStore } from "../../src/store/authStore";
 import { useTheme } from "../../src/theme/ThemeContext";
 import { FontFamily } from "../../src/theme/typography";
 
-type UploadState = "empty" | "picked" | "uploading" | "done" | "error";
+type UploadState = "empty" | "uploading" | "done" | "error";
 
 export default function DocDrivingLicenseScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
+  const { rider, updateRider } = useAuthStore();
 
-  // Document States with Cache Integration
-  const [frontUri, setFrontUri] = useState<string | null>(
-    documentCache.getUri("DRIVING_LICENSE", "front"),
-  );
-  const [frontState, setFrontState] = useState<UploadState>(
-    documentCache.has("DRIVING_LICENSE", "front") ? "done" : "empty",
-  );
-  const [backUri, setBackUri] = useState<string | null>(
-    documentCache.getUri("DRIVING_LICENSE", "back"),
-  );
-  const [backState, setBackState] = useState<UploadState>(
-    documentCache.has("DRIVING_LICENSE", "back") ? "done" : "empty",
-  );
+  const [frontUri, setFrontUri] = useState<string | null>(null);
+  const [frontState, setFrontState] = useState<UploadState>("empty");
+  const [backUri, setBackUri] = useState<string | null>(null);
+  const [backState, setBackState] = useState<UploadState>("empty");
   const [error, setError] = useState<string | null>(null);
 
-  // Bottom Sheet Picker State
+  const [initialLoading, setInitialLoading] = useState(true);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [activeSide, setActiveSide] = useState<"front" | "back" | null>(null);
 
   const canContinue = frontState === "done" && backState === "done";
 
-  // Safe Stack-Aware Back Navigation
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace("/(onboarding)/vehicle-details");
-    }
-  };
+  // ── Load existing + resubmission skip ────────────────────
+  useEffect(() => {
+    async function loadDoc() {
+      try {
+        const status = await onboardingApi.getStatus();
+        const doc = status.documents.find((d) => d.group === "DRIVING_LICENSE");
 
-  // Request Permissions & Launch Source
+        if (status.is_resubmission && doc && !doc.was_rejected_this_cycle) {
+          router.replace("/(onboarding)/doc-aadhar");
+          return;
+        }
+
+        if (doc) {
+          if (doc.has_front) {
+            const cachedFront = documentCache.getUri(
+              "DRIVING_LICENSE",
+              "front",
+            );
+            setFrontUri(cachedFront || doc.front_url);
+            setFrontState("done");
+          }
+          if (doc.has_back) {
+            const cachedBack = documentCache.getUri("DRIVING_LICENSE", "back");
+            setBackUri(cachedBack || doc.back_url);
+            setBackState("done");
+          }
+        }
+      } catch {
+        // silent fail
+      } finally {
+        setInitialLoading(false);
+      }
+    }
+    loadDoc();
+  }, []);
+
   async function launchSource(source: "camera" | "gallery") {
     setPickerVisible(false);
     let result;
@@ -88,17 +107,16 @@ export default function DocDrivingLicenseScreen() {
       if (!result.canceled && result.assets[0] && activeSide) {
         const image = {
           uri: result.assets[0].uri,
-          name: "photo.jpg",
+          name: "dl.jpg",
           type: result.assets[0].mimeType || "image/jpeg",
         };
         await uploadSelectedImage(activeSide, image);
       }
-    } catch (err) {
+    } catch {
       setError("Failed to select image source.");
     }
   }
 
-  // Upload Logic with Cache Integration
   async function uploadSelectedImage(
     side: "front" | "back",
     image: { uri: string; name: string; type: string },
@@ -116,19 +134,27 @@ export default function DocDrivingLicenseScreen() {
 
     try {
       await onboardingApi.uploadDocument(
-        "DRIVING_LICENSE_FRONT", // Keep constant value per existing backend flow
+        "DRIVING_LICENSE_FRONT",
         isFront,
         image.uri,
         image.name,
         image.type,
       );
 
-      // Cache local URI for immediate restore
       documentCache.setUri("DRIVING_LICENSE", side, image.uri);
 
       if (isFront) setFrontState("done");
       else setBackState("done");
-    } catch (err: any) {
+
+      // Sync store step when both sides done
+      const bothDone =
+        (isFront ? "done" : frontState) === "done" &&
+        (!isFront ? "done" : backState) === "done";
+
+      if (bothDone && rider && rider.onboarding_step === "DL_UPLOAD") {
+        updateRider({ onboarding_step: "AADHAAR_UPLOAD" });
+      }
+    } catch {
       if (isFront) setFrontState("error");
       else setBackState("error");
       setError(`Failed to upload ${side} side of Driving License.`);
@@ -140,137 +166,114 @@ export default function DocDrivingLicenseScreen() {
     setPickerVisible(true);
   }
 
-  return (
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: colors.background.page }]}
-      edges={["top", "bottom"]}
-    >
-      <View style={styles.flex}>
-        {/* Step Header */}
-        <View style={styles.progressContainer}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            hitSlop={12}
-          >
-            <MaterialIcons
-              name="arrow-back"
-              size={20}
-              color={colors.text.muted}
-            />
-            <Text style={[styles.backText, { color: colors.text.muted }]}>
-              Back
-            </Text>
-          </TouchableOpacity>
+  function handleContinue() {
+    router.replace("/(onboarding)/doc-aadhar");
+  }
 
-          <View style={styles.stepTracker}>
-            {Array.from({ length: 5 }).map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.stepBar,
-                  {
-                    backgroundColor:
-                      index <= 3 ? colors.brand.accent : colors.border.input,
-                  },
-                ]}
-              />
-            ))}
-          </View>
-          <Text style={[styles.stepText, { color: colors.text.muted }]}>
-            Step 4 of 5: Documents
+  if (initialLoading) {
+    return (
+      <OnboardingWrapper currentStep="DL_UPLOAD">
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.brand.accent} />
+        </View>
+      </OnboardingWrapper>
+    );
+  }
+
+  return (
+    <OnboardingWrapper currentStep="DL_UPLOAD">
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.headerBlock}>
+          <Text style={[styles.title, { color: colors.text.primary }]}>
+            Driving License
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.text.muted }]}>
+            Upload a clear photo of both sides of your driving license.
           </Text>
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+        <View style={styles.formGroup}>
+          <UploadCard
+            label="License Front Side"
+            iconName="card-membership"
+            state={frontState}
+            uri={frontUri}
+            onPick={() => handleTriggerPick("front")}
+            colors={colors}
+          />
+          <UploadCard
+            label="License Back Side"
+            iconName="card-membership"
+            state={backState}
+            uri={backUri}
+            onPick={() => handleTriggerPick("back")}
+            colors={colors}
+          />
+        </View>
+
+        {error && (
+          <View style={styles.errorRow}>
+            <MaterialIcons
+              name="error-outline"
+              size={16}
+              color={colors.status.error}
+            />
+            <Text style={[styles.errorText, { color: colors.status.error }]}>
+              {error}
+            </Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={[
+            styles.button,
+            {
+              backgroundColor: isDark
+                ? colors.brand.accent
+                : colors.brand.primary,
+            },
+            !canContinue && styles.buttonDisabled,
+          ]}
+          onPress={handleContinue}
+          disabled={!canContinue}
+          activeOpacity={0.85}
         >
-          <View style={styles.headerBlock}>
-            <Text style={[styles.title, { color: colors.text.primary }]}>
-              Driving License
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.text.muted }]}>
-              Upload a clear photo of both sides of your driving license.
-            </Text>
-          </View>
+          <Text style={styles.buttonText}>Continue</Text>
+          <MaterialIcons name="arrow-forward" size={18} color="#ffffff" />
+        </TouchableOpacity>
+      </ScrollView>
 
-          <View style={styles.formGroup}>
-            {/* Front Card */}
-            <UploadCard
-              label="License Front Side"
-              state={frontState}
-              uri={frontUri}
-              onPick={() => handleTriggerPick("front")}
-              colors={colors}
-            />
-
-            {/* Back Card */}
-            <UploadCard
-              label="License Back Side"
-              state={backState}
-              uri={backUri}
-              onPick={() => handleTriggerPick("back")}
-              colors={colors}
-            />
-          </View>
-
-          {/* Error Row */}
-          {error && (
-            <View style={styles.errorRow}>
-              <MaterialIcons
-                name="error-outline"
-                size={16}
-                color={colors.status.error}
-              />
-              <Text style={[styles.errorText, { color: colors.status.error }]}>
-                {error}
-              </Text>
-            </View>
-          )}
-
-          {/* Continue Button */}
-          <TouchableOpacity
-            style={[
-              styles.button,
-              {
-                backgroundColor: isDark
-                  ? colors.brand.accent
-                  : colors.brand.primary,
-              },
-              !canContinue && styles.buttonDisabled,
-            ]}
-            onPress={() => router.push("/(onboarding)/doc-vehicle-rc")}
-            disabled={!canContinue}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.buttonText}>Continue</Text>
-            <MaterialIcons name="arrow-forward" size={18} color="#ffffff" />
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-
-      {/* CUSTOM BOTTOM SHEET PHOTO SOURCE SELECTOR */}
       <PhotoPickerSheet
         visible={pickerVisible}
         onClose={() => setPickerVisible(false)}
         onSelect={launchSource}
       />
-    </SafeAreaView>
+    </OnboardingWrapper>
   );
 }
 
-// ── REUSABLE CUSTOM UPLOAD CARD ──────────────────────────────────────
+// ── UPLOAD CARD (shared shape) ─────────────────────────────
 
 interface UploadCardProps {
   label: string;
+  iconName: string;
   state: UploadState;
   uri: string | null;
   onPick: () => void;
   colors: any;
 }
 
-function UploadCard({ label, state, uri, onPick, colors }: UploadCardProps) {
+function UploadCard({
+  label,
+  iconName,
+  state,
+  uri,
+  onPick,
+  colors,
+}: UploadCardProps) {
   const isDone = state === "done";
   const isError = state === "error";
   const isUploading = state === "uploading";
@@ -299,7 +302,13 @@ function UploadCard({ label, state, uri, onPick, colors }: UploadCardProps) {
             {isUploading && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="small" color="#ffffff" />
-                <Text style={styles.loadingText}>Uploading image...</Text>
+                <Text style={styles.overlayText}>Uploading image...</Text>
+              </View>
+            )}
+            {isDone && !isUploading && (
+              <View style={styles.replaceOverlay}>
+                <MaterialIcons name="edit" size={16} color="#ffffff" />
+                <Text style={styles.overlayText}>Tap to replace</Text>
               </View>
             )}
           </View>
@@ -328,7 +337,6 @@ function UploadCard({ label, state, uri, onPick, colors }: UploadCardProps) {
           </View>
         )}
 
-        {/* Footer Details */}
         <View
           style={[
             styles.cardFooter,
@@ -340,7 +348,7 @@ function UploadCard({ label, state, uri, onPick, colors }: UploadCardProps) {
         >
           <View style={styles.footerLabelGroup}>
             <MaterialIcons
-              name="card-membership"
+              name={iconName as any}
               size={18}
               color={colors.text.muted}
             />
@@ -359,7 +367,7 @@ function UploadCard({ label, state, uri, onPick, colors }: UploadCardProps) {
               <Text
                 style={[styles.statusText, { color: colors.status.success }]}
               >
-                Verified
+                Uploaded
               </Text>
             </View>
           )}
@@ -395,7 +403,7 @@ function UploadCard({ label, state, uri, onPick, colors }: UploadCardProps) {
   );
 }
 
-// ── PHOTO SOURCE SELECTOR MODAL ──────────────────────────────────────
+// ── PHOTO PICKER SHEET ─────────────────────────────────────
 
 interface PhotoPickerSheetProps {
   visible: boolean;
@@ -409,7 +417,6 @@ function PhotoPickerSheet({
   onSelect,
 }: PhotoPickerSheetProps) {
   const { colors } = useTheme();
-
   if (!visible) return null;
 
   return (
@@ -421,7 +428,6 @@ function PhotoPickerSheet({
             { backgroundColor: colors.background.elevated },
           ]}
         >
-          {/* Header */}
           <View
             style={[
               styles.modalHeader,
@@ -440,7 +446,6 @@ function PhotoPickerSheet({
             </TouchableOpacity>
           </View>
 
-          {/* Selection Items */}
           <View style={styles.optionsWrapper}>
             <TouchableOpacity
               style={[
@@ -511,7 +516,6 @@ function PhotoPickerSheet({
             </TouchableOpacity>
           </View>
 
-          {/* Cancel button */}
           <View style={styles.modalFooter}>
             <TouchableOpacity
               onPress={onClose}
@@ -536,71 +540,20 @@ function PhotoPickerSheet({
   );
 }
 
-// ── DESIGN STYLES ──────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  flex: { flex: 1 },
-  progressContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
-    gap: 12,
-  },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    alignSelf: "flex-start",
-    paddingVertical: 4,
-  },
-  backText: {
-    fontSize: 14,
-    fontFamily: FontFamily.medium,
-  },
-  stepTracker: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  stepBar: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-  },
-  stepText: {
-    fontSize: 12,
-    fontFamily: FontFamily.semiBold,
-  },
+  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingBottom: 40,
     gap: 24,
   },
-  headerBlock: {
-    gap: 4,
-  },
-  title: {
-    fontSize: 26,
-    fontFamily: FontFamily.bold,
-    lineHeight: 32,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontFamily: FontFamily.regular,
-    lineHeight: 22,
-  },
-  formGroup: {
-    gap: 16,
-  },
-  cardContainer: {
-    width: "100%",
-  },
-  card: {
-    borderWidth: 1.5,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
+  headerBlock: { gap: 4 },
+  title: { fontSize: 24, fontFamily: FontFamily.bold, lineHeight: 30 },
+  subtitle: { fontSize: 14, fontFamily: FontFamily.regular, lineHeight: 22 },
+  formGroup: { gap: 16 },
+  cardContainer: { width: "100%" },
+  card: { borderWidth: 1.5, borderRadius: 16, overflow: "hidden" },
   placeholder: {
     height: 140,
     alignItems: "center",
@@ -616,24 +569,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 2,
   },
-  placeholderTitle: {
-    fontSize: 14,
-    fontFamily: FontFamily.bold,
-  },
-  placeholderSub: {
-    fontSize: 11,
-    fontFamily: FontFamily.regular,
-  },
-  previewContainer: {
-    position: "relative",
-    width: "100%",
-    height: 180,
-  },
-  preview: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
+  placeholderTitle: { fontSize: 14, fontFamily: FontFamily.bold },
+  placeholderSub: { fontSize: 11, fontFamily: FontFamily.regular },
+  previewContainer: { position: "relative", width: "100%", height: 180 },
+  preview: { width: "100%", height: "100%", resizeMode: "cover" },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.65)",
@@ -641,47 +580,34 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
   },
-  loadingText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontFamily: FontFamily.bold,
+  replaceOverlay: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
+  overlayText: { color: "#ffffff", fontSize: 11, fontFamily: FontFamily.bold },
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 14,
   },
-  footerLabelGroup: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  cardLabel: {
-    fontSize: 14,
-    fontFamily: FontFamily.semiBold,
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  statusText: {
-    fontSize: 12,
-    fontFamily: FontFamily.bold,
-  },
-  actionBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  actionText: {
-    fontSize: 12,
-    fontFamily: FontFamily.bold,
-  },
+  footerLabelGroup: { flexDirection: "row", alignItems: "center", gap: 8 },
+  cardLabel: { fontSize: 14, fontFamily: FontFamily.semiBold },
+  statusBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
+  statusText: { fontSize: 12, fontFamily: FontFamily.bold },
+  actionBadge: { flexDirection: "row", alignItems: "center", gap: 6 },
+  actionText: { fontSize: 12, fontFamily: FontFamily.bold },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end",
   },
   modalContent: {
@@ -697,18 +623,9 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     borderBottomWidth: 1.5,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontFamily: FontFamily.bold,
-  },
-  closeBtn: {
-    padding: 4,
-  },
-  optionsWrapper: {
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    gap: 12,
-  },
+  modalTitle: { fontSize: 18, fontFamily: FontFamily.bold },
+  closeBtn: { padding: 4 },
+  optionsWrapper: { paddingHorizontal: 24, paddingVertical: 16, gap: 12 },
   optionBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -724,21 +641,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  optionTextContainer: {
-    flex: 1,
-    gap: 2,
-  },
-  optionTitle: {
-    fontSize: 14,
-    fontFamily: FontFamily.bold,
-  },
-  optionDesc: {
-    fontSize: 11,
-    fontFamily: FontFamily.regular,
-  },
-  modalFooter: {
-    paddingHorizontal: 24,
-  },
+  optionTextContainer: { flex: 1, gap: 2 },
+  optionTitle: { fontSize: 14, fontFamily: FontFamily.bold },
+  optionDesc: { fontSize: 11, fontFamily: FontFamily.regular },
+  modalFooter: { paddingHorizontal: 24 },
   modalFooterBtn: {
     width: "100%",
     paddingVertical: 14,
@@ -746,20 +652,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  modalFooterBtnText: {
-    fontSize: 15,
-    fontFamily: FontFamily.bold,
-  },
-  errorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: -8,
-  },
-  errorText: {
-    fontSize: 13,
-    fontFamily: FontFamily.medium,
-  },
+  modalFooterBtnText: { fontSize: 15, fontFamily: FontFamily.bold },
+  errorRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  errorText: { fontSize: 13, fontFamily: FontFamily.medium },
   button: {
     flexDirection: "row",
     alignItems: "center",
@@ -769,12 +664,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginTop: 4,
   },
-  buttonDisabled: {
-    opacity: 0.45,
-  },
-  buttonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontFamily: FontFamily.bold,
-  },
+  buttonDisabled: { opacity: 0.45 },
+  buttonText: { color: "#ffffff", fontSize: 16, fontFamily: FontFamily.bold },
 });

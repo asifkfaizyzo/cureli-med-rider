@@ -1,44 +1,44 @@
-// app/(auth)/otp.tsx
-
+import { MaterialIcons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Keyboard,
-} from 'react-native';
-import { useState, useEffect, useRef } from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useAuthStore } from '../../src/store/authStore';
-import { useTheme } from '../../src/theme/ThemeContext';
-import { authApi } from '../../src/features/auth/api/auth.api';
-import { getRouteForRider } from '../../src/features/auth/utils/authNavigation';
-import { FontFamily } from '../../src/theme/typography';
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { authApi } from "../../src/features/auth/api/auth.api";
+import { getRouteForRider } from "../../src/features/auth/utils/authNavigation";
+import { useAuthStore } from "../../src/store/authStore";
+import { useTheme } from "../../src/theme/ThemeContext";
+import { FontFamily } from "../../src/theme/typography";
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 30;
 
 export default function OtpScreen() {
   const params = useLocalSearchParams<{ phone: string }>();
-  const phone = params.phone ?? '';
+  const phone = params.phone ?? "";
 
   const { setAuth, setTempToken } = useAuthStore();
   const { colors } = useTheme();
 
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN);
   const [resending, setResending] = useState(false);
 
   const inputRef = useRef<TextInput>(null);
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
 
   // Countdown timer
   useEffect(() => {
@@ -55,50 +55,52 @@ export default function OtpScreen() {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // Auto-verify when all 6 digits entered
+  // Verify handler — stabilized with useCallback
+  const handleVerify = useCallback(
+    async (code: string) => {
+      if (loadingRef.current) return;
+      setError(null);
+      setLoading(true);
+
+      try {
+        const result = await authApi.verifyOtp(phone, code);
+
+        if (result.is_new && result.temp_token) {
+          setTempToken(result.temp_token);
+          setTimeout(() => {
+            router.replace("/(auth)/set-password");
+          }, 150);
+        } else if (result.accessToken && result.rider) {
+          setAuth(result.rider, result.accessToken, result.refreshToken!);
+          const target = getRouteForRider(result.rider);
+          setTimeout(() => {
+            router.replace(target as any);
+          }, 150);
+        }
+      } catch (err: unknown) {
+        setOtp("");
+        setError(extractErrorMessage(err));
+        setTimeout(() => inputRef.current?.focus(), 100);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [phone, setAuth, setTempToken],
+  );
+
+  // Auto-verify when all 6 digits entered — FIXED: uses ref for loading
   useEffect(() => {
-    if (otp.length === OTP_LENGTH && !loading) {
+    if (otp.length === OTP_LENGTH && !loadingRef.current) {
       Keyboard.dismiss();
       handleVerify(otp);
     }
-  }, [otp]);
-
-  async function handleVerify(code: string) {
-    if (loading) return;
-    setError(null);
-    setLoading(true);
-
-    try {
-      const result = await authApi.verifyOtp(phone, code);
-
-      if (result.is_new && result.temp_token) {
-        // Store token in Zustand — DO NOT pass as URL param
-        setTempToken(result.temp_token);
-        // Small delay to let store persist before navigation
-        setTimeout(() => {
-          router.replace('/(auth)/set-password');
-        }, 150);
-      } else if (result.accessToken && result.rider) {
-        setAuth(result.rider, result.accessToken, result.refreshToken!);
-        const target = getRouteForRider(result.rider);
-        setTimeout(() => {
-          router.replace(target as any);
-        }, 150);
-      }
-    } catch (err: unknown) {
-      setOtp('');
-      setError(extractErrorMessage(err));
-      setTimeout(() => inputRef.current?.focus(), 100);
-    } finally {
-      setLoading(false);
-    }
-  }
+  }, [otp, handleVerify]);
 
   async function handleResend() {
     if (resendCooldown > 0 || !phone || resending) return;
     setResending(true);
     setError(null);
-    setOtp('');
+    setOtp("");
 
     try {
       const result = await authApi.sendOtp(phone);
@@ -111,7 +113,7 @@ export default function OtpScreen() {
   }
 
   function handleOtpChange(text: string) {
-    const digits = text.replace(/\D/g, '').slice(0, OTP_LENGTH);
+    const digits = text.replace(/\D/g, "").slice(0, OTP_LENGTH);
     setOtp(digits);
     if (error) setError(null);
   }
@@ -120,7 +122,7 @@ export default function OtpScreen() {
     return (
       <View style={styles.otpBoxRow}>
         {Array.from({ length: OTP_LENGTH }).map((_, index) => {
-          const char = otp[index] ?? '';
+          const char = otp[index] ?? "";
           const isCurrent = index === otp.length && !loading;
           const isFilled = index < otp.length;
 
@@ -173,11 +175,11 @@ export default function OtpScreen() {
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
-      edges={['top', 'bottom']}
+      edges={["top", "bottom"]}
     >
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
           style={styles.flex}
@@ -191,7 +193,11 @@ export default function OtpScreen() {
             onPress={() => router.back()}
             disabled={loading}
           >
-            <MaterialIcons name="arrow-back" size={20} color={colors.text.muted} />
+            <MaterialIcons
+              name="arrow-back"
+              size={20}
+              color={colors.text.muted}
+            />
             <Text style={[styles.backText, { color: colors.text.muted }]}>
               Back
             </Text>
@@ -211,7 +217,7 @@ export default function OtpScreen() {
               Verification code
             </Text>
             <Text style={[styles.subtitle, { color: colors.text.muted }]}>
-              We sent a 6-digit code to{'\n'}
+              We sent a 6-digit code to{"\n"}
               <Text
                 style={[styles.phoneHighlight, { color: colors.text.primary }]}
               >
@@ -295,14 +301,14 @@ export default function OtpScreen() {
 }
 
 function extractErrorMessage(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
+  if (err && typeof err === "object" && "response" in err) {
     const axiosErr = err as {
       response?: { data?: { message?: string }; status?: number };
     };
     const message = axiosErr.response?.data?.message;
     if (message) return message;
   }
-  return 'Failed to verify OTP. Please try again.';
+  return "Failed to verify OTP. Please try again.";
 }
 
 const styles = StyleSheet.create({
@@ -316,49 +322,49 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     paddingVertical: 8,
   },
   backText: { fontSize: 14, fontFamily: FontFamily.medium },
-  header: { alignItems: 'center', gap: 10, paddingTop: 16 },
+  header: { alignItems: "center", gap: 10, paddingTop: 16 },
   otpIconWrapper: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 8,
   },
   title: {
     fontSize: 26,
     fontFamily: FontFamily.bold,
-    textAlign: 'center',
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 14,
     fontFamily: FontFamily.regular,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
   phoneHighlight: { fontFamily: FontFamily.semiBold },
-  otpSection: { alignItems: 'center', position: 'relative', marginTop: 8 },
-  hiddenInput: { position: 'absolute', opacity: 0, width: 1, height: 1 },
-  otpBoxRow: { flexDirection: 'row', gap: 10 },
+  otpSection: { alignItems: "center", position: "relative", marginTop: 8 },
+  hiddenInput: { position: "absolute", opacity: 0, width: 1, height: 1 },
+  otpBoxRow: { flexDirection: "row", gap: 10 },
   otpBox: {
     width: 48,
     height: 58,
     borderWidth: 1.5,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
   },
   otpChar: { fontSize: 22, fontFamily: FontFamily.bold },
   cursor: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 10,
     width: 2,
     height: 22,
@@ -366,29 +372,29 @@ const styles = StyleSheet.create({
   },
   statusSlot: {
     height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginVertical: -8,
   },
   errorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
   },
   errorText: { fontSize: 13, fontFamily: FontFamily.medium },
   loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
   },
   loadingText: { fontSize: 14, fontFamily: FontFamily.medium },
   resendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingBottom: 32,
   },
   resendLabel: { fontSize: 14, fontFamily: FontFamily.regular },

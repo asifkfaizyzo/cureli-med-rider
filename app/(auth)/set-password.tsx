@@ -1,5 +1,3 @@
-// app/(auth)/set-password.tsx
-
 import {
   View,
   Text,
@@ -11,35 +9,35 @@ import {
   Keyboard,
   Platform,
   KeyboardAvoidingView,
-} from 'react-native';
-import { useState } from 'react';
-import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useAuthStore } from '../../src/store/authStore';
-import { useTheme } from '../../src/theme/ThemeContext';
-import { authApi } from '../../src/features/auth/api/auth.api';
-import { getRouteForRider } from '../../src/features/auth/utils/authNavigation';
-import { FontFamily } from '../../src/theme/typography';
+} from "react-native";
+import { useState } from "react";
+import { router } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useAuthStore } from "../../src/store/authStore";
+import { useTheme } from "../../src/theme/ThemeContext";
+import { authApi } from "../../src/features/auth/api/auth.api";
+import { getRouteForRider } from "../../src/features/auth/utils/authNavigation";
+import { FontFamily } from "../../src/theme/typography";
 
 export default function SetPasswordScreen() {
-  const { setAuth, tempToken, clearAuth } = useAuthStore();
+  const { setAuth, tempToken } = useAuthStore();
   const { colors, isDark } = useTheme();
 
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
   function validate(): string | null {
-    if (!password) return 'Enter a password';
-    if (password.length < 8) return 'Password must be at least 8 characters';
+    if (!password) return "Enter a password";
+    if (password.length < 8) return "Password must be at least 8 characters";
     if (!/[A-Za-z]/.test(password) || !/\d/.test(password))
-      return 'Must contain a letter and a number';
-    if (password !== confirmPassword) return 'Passwords do not match';
-    if (!tempToken) return 'Session expired. Please verify OTP again.';
+      return "Must contain a letter and a number";
+    if (password !== confirmPassword) return "Passwords do not match";
+    if (!tempToken) return "Session expired. Please verify OTP again.";
     return null;
   }
 
@@ -68,10 +66,13 @@ export default function SetPasswordScreen() {
   function handleNavigateToOnboarding() {
     const rider = useAuthStore.getState().rider;
     if (rider) {
+      // getRouteForRider now uses onboarding_step field
+      // New riders will have step = PERSONAL_DETAILS, status = DRAFT
+      // → returns "/(onboarding)/personal-details"
       const target = getRouteForRider(rider);
       router.replace(target as any);
     } else {
-      router.replace('/(onboarding)/personal-details');
+      router.replace("/(onboarding)/personal-details");
     }
   }
 
@@ -86,7 +87,7 @@ export default function SetPasswordScreen() {
     return (
       <SafeAreaView
         style={[styles.safe, { backgroundColor: colors.background.page }]}
-        edges={['top', 'bottom']}
+        edges={["top", "bottom"]}
       >
         <View style={styles.successContainer}>
           <View
@@ -136,11 +137,11 @@ export default function SetPasswordScreen() {
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
-      edges={['top', 'bottom']}
+      edges={["top", "bottom"]}
     >
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
           style={styles.flex}
@@ -153,7 +154,11 @@ export default function SetPasswordScreen() {
             onPress={() => router.back()}
             disabled={loading}
           >
-            <MaterialIcons name="arrow-back" size={20} color={colors.text.muted} />
+            <MaterialIcons
+              name="arrow-back"
+              size={20}
+              color={colors.text.muted}
+            />
             <Text style={[styles.backText, { color: colors.text.muted }]}>
               Back
             </Text>
@@ -215,7 +220,7 @@ export default function SetPasswordScreen() {
                 style={styles.eyeButton}
               >
                 <MaterialIcons
-                  name={showPassword ? 'visibility-off' : 'visibility'}
+                  name={showPassword ? "visibility-off" : "visibility"}
                   size={20}
                   color={colors.text.faint}
                 />
@@ -235,7 +240,7 @@ export default function SetPasswordScreen() {
                   },
                 ]}
               >
-                {password.length >= 8 ? '✓' : '○'} At least 8 characters
+                {password.length >= 8 ? "✓" : "○"} At least 8 characters
               </Text>
               <Text
                 style={[
@@ -248,7 +253,7 @@ export default function SetPasswordScreen() {
                   },
                 ]}
               >
-                {/[A-Za-z]/.test(password) && /\d/.test(password) ? '✓' : '○'}{' '}
+                {/[A-Za-z]/.test(password) && /\d/.test(password) ? "✓" : "○"}{" "}
                 Letter and number
               </Text>
             </View>
@@ -353,14 +358,14 @@ export default function SetPasswordScreen() {
 }
 
 function extractErrorMessage(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
+  if (err && typeof err === "object" && "response" in err) {
     const axiosErr = err as {
       response?: { data?: { message?: string }; status?: number };
     };
     const message = axiosErr.response?.data?.message;
     if (message) return message;
   }
-  return 'Failed to set password. Please try again.';
+  return "Failed to set password. Please try again.";
 }
 
 const styles = StyleSheet.create({
@@ -373,15 +378,15 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     paddingVertical: 8,
   },
   backText: { fontSize: 14, fontFamily: FontFamily.medium },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 10,
     paddingTop: 32,
     paddingBottom: 32,
@@ -390,29 +395,29 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 8,
   },
   title: {
     fontSize: 24,
     fontFamily: FontFamily.bold,
-    textAlign: 'center',
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 14,
     fontFamily: FontFamily.regular,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: 24,
   },
   formSection: { gap: 14 },
   inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1.5,
     borderRadius: 14,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   inputIcon: { paddingLeft: 14 },
   input: {
@@ -426,16 +431,16 @@ const styles = StyleSheet.create({
   hints: { gap: 4, paddingHorizontal: 4 },
   hint: { fontSize: 12, fontFamily: FontFamily.medium },
   errorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     marginTop: -6,
   },
   errorText: { fontSize: 13, fontFamily: FontFamily.medium },
   button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     paddingVertical: 16,
     borderRadius: 14,
@@ -443,14 +448,14 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.45 },
   buttonText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 16,
     fontFamily: FontFamily.bold,
   },
   successContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 24,
     gap: 16,
   },
@@ -458,12 +463,12 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 12,
   },
   successButton: {
-    width: '100%',
+    width: "100%",
     marginTop: 20,
   },
 });

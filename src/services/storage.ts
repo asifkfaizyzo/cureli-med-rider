@@ -1,40 +1,23 @@
-//cureli-rider-app\src\services\storage.ts
-import { MMKV } from 'react-native-mmkv';
-
-const storage = new MMKV({ id: 'cureli-rider-storage' });
+/**
+ * @deprecated This file is kept ONLY for backward compatibility.
+ * All storage now lives in src/lib/mmkvStorage.ts.
+ *
+ * ThemeContext.tsx imports StorageService from here.
+ * Once ThemeContext is updated, this file can be deleted.
+ */
+import { themeStorage, appStorage } from "../lib/mmkvStorage";
 
 export const StorageService = {
-  getAccessToken(): string | null {
-    return storage.getString('auth.access_token') ?? null;
-  },
-  setAccessToken(token: string): void {
-    storage.set('auth.access_token', token);
-  },
-  getRefreshToken(): string | null {
-    return storage.getString('auth.refresh_token') ?? null;
-  },
-  setRefreshToken(token: string): void {
-    storage.set('auth.refresh_token', token);
-  },
-  clearAuth(): void {
-    storage.delete('auth.access_token');
-    storage.delete('auth.refresh_token');
-  },
-  clearAll(): void {
-    storage.clearAll();
-  },
-  getThemePreference(): 'light' | 'dark' {
-    const val = storage.getString('app.theme_preference');
-    if (val === 'light' || val === 'dark') return val;
-    return 'dark';
-  },
-  setThemePreference(pref: 'light' | 'dark'): void {
-    storage.set('app.theme_preference', pref);
-  },
-  getString(key: string): string | null {
-    return storage.getString(key) ?? null;
-  },
-  setString(key: string, value: string): void {
-    storage.set(key, value);
-  },
+  getThemePreference: (): "light" | "dark" => themeStorage.get(),
+  setThemePreference: (pref: "light" | "dark"): void => themeStorage.set(pref),
+  getString: (key: string): string | null => appStorage.getString(key),
+  setString: (key: string, value: string): void => appStorage.setString(key, value),
+  clearAll: (): void => appStorage.clearAll(),
+
+  // Auth methods — no longer used (Zustand persist handles tokens)
+  getAccessToken: (): string | null => null,
+  setAccessToken: (_token: string): void => {},
+  getRefreshToken: (): string | null => null,
+  setRefreshToken: (_token: string): void => {},
+  clearAuth: (): void => {},
 };

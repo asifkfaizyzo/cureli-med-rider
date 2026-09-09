@@ -1,8 +1,7 @@
-// app/(onboarding)/vehicle-details.tsx
-
+//Q:\YourZeroesAndOnes\cureli\cureli-med-rider\app\(onboarding)\vehicle-details.tsx
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -15,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { OnboardingWrapper } from "../../src/components/OnboardingWrapper";
 import { onboardingApi } from "../../src/features/onboarding/api/onboarding.api";
 import { useAuthStore } from "../../src/store/authStore";
 import { useTheme } from "../../src/theme/ThemeContext";
@@ -43,33 +42,38 @@ export default function VehicleDetailsScreen() {
 
   // UI States
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Track touched state for inputs
-  const [touched, setTouched] = useState({
-    vNumber: false,
-    vMake: false,
-  });
+  const [touched, setTouched] = useState({ vNumber: false, vMake: false });
 
-  // Sanitizes registration input
+  // ── Load existing data ──────────────────────────────────
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const status = await onboardingApi.getStatus();
+        if (status.vehicle_details) {
+          setVType(status.vehicle_details.vehicle_type || "");
+          setVNumber(status.vehicle_details.vehicle_number || "");
+          setVMake(status.vehicle_details.vehicle_make_model || "");
+        }
+      } catch {
+        // silent fail
+      } finally {
+        setInitialLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
   const cleanRcInput = (text: string) => {
     return text.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
   };
 
-  // Validations
   const cleanedVNumber = cleanRcInput(vNumber);
   const isTypeValid = vType.length > 0;
   const isNumberValid = RC_REGEX.test(cleanedVNumber);
   const formIsValid = isTypeValid && isNumberValid;
-
-  // Safe Stack-Aware Back Navigation
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace("/(onboarding)/location");
-    }
-  };
 
   async function handleSave() {
     if (!formIsValid) return;
@@ -88,9 +92,11 @@ export default function VehicleDetailsScreen() {
         vehicle_type: vType,
         vehicle_number: cleanedVNumber,
         has_vehicle_details: true,
+        onboarding_step: "RC_UPLOAD",
       });
 
-      router.push("/(onboarding)/doc-driving-license");
+      // NEW ORDER: Vehicle Details → RC Upload (was: DL)
+      router.replace("/(onboarding)/doc-vehicle-rc");
     } catch (err: any) {
       setError(
         err?.response?.data?.message ??
@@ -102,55 +108,23 @@ export default function VehicleDetailsScreen() {
     }
   }
 
+  if (initialLoading) {
+    return (
+      <OnboardingWrapper currentStep="VEHICLE_DETAILS">
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.brand.accent} />
+        </View>
+      </OnboardingWrapper>
+    );
+  }
+
   return (
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: colors.background.page }]}
-      edges={["top", "bottom"]}
-    >
+    <OnboardingWrapper currentStep="VEHICLE_DETAILS">
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        {/* Step Header */}
-        <View style={styles.progressContainer}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            disabled={loading}
-            hitSlop={12}
-          >
-            <MaterialIcons
-              name="arrow-back"
-              size={20}
-              color={colors.text.muted}
-            />
-            <Text style={[styles.backText, { color: colors.text.muted }]}>
-              Back
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.stepTracker}>
-            {Array.from({ length: 5 }).map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.stepBar,
-                  {
-                    backgroundColor:
-                      index <= 2 ? colors.brand.accent : colors.border.input,
-                  },
-                ]}
-              />
-            ))}
-          </View>
-          <Text style={[styles.stepText, { color: colors.text.muted }]}>
-            Step 3 of 5: Vehicle Details
-          </Text>
-        </View>
-
         <ScrollView
-          style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -166,7 +140,7 @@ export default function VehicleDetailsScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            {/* Vehicle Type Picker */}
+            {/* Vehicle Type */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Vehicle Type *
@@ -229,7 +203,7 @@ export default function VehicleDetailsScreen() {
               </View>
             </View>
 
-            {/* Vehicle Number Input */}
+            {/* Vehicle Number */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Vehicle Number (RC) *
@@ -262,9 +236,7 @@ export default function VehicleDetailsScreen() {
                   placeholderTextColor={colors.text.faint}
                   value={vNumber}
                   onChangeText={(t) => setVNumber(cleanRcInput(t))}
-                  onBlur={() =>
-                    setTouched((prev) => ({ ...prev, vNumber: true }))
-                  }
+                  onBlur={() => setTouched((p) => ({ ...p, vNumber: true }))}
                   autoCapitalize="characters"
                   maxLength={13}
                   editable={!loading}
@@ -287,7 +259,7 @@ export default function VehicleDetailsScreen() {
               )}
             </View>
 
-            {/* Make & Model Input */}
+            {/* Make & Model */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Make & Model
@@ -325,7 +297,6 @@ export default function VehicleDetailsScreen() {
             </View>
           </View>
 
-          {/* Form Level Error Banner */}
           {error && (
             <View style={styles.errorRow}>
               <MaterialIcons
@@ -339,7 +310,6 @@ export default function VehicleDetailsScreen() {
             </View>
           )}
 
-          {/* Continue Button */}
           <TouchableOpacity
             style={[
               styles.button,
@@ -358,84 +328,38 @@ export default function VehicleDetailsScreen() {
               <ActivityIndicator color="#ffffff" size="small" />
             ) : (
               <>
-                <Text style={styles.buttonText}>Continue</Text>
+                <Text style={styles.buttonText}>Save & Continue</Text>
                 <MaterialIcons name="arrow-forward" size={18} color="#ffffff" />
               </>
             )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </OnboardingWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   flex: { flex: 1 },
-  progressContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
-    gap: 12,
-  },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    alignSelf: "flex-start",
-    paddingVertical: 4,
-  },
-  backText: {
-    fontSize: 14,
-    fontFamily: FontFamily.medium,
-  },
-  stepTracker: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  stepBar: {
+  loadingContainer: {
     flex: 1,
-    height: 4,
-    borderRadius: 2,
-  },
-  stepText: {
-    fontSize: 12,
-    fontFamily: FontFamily.semiBold,
+    alignItems: "center",
+    justifyContent: "center",
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingBottom: 40,
     gap: 24,
   },
-  headerBlock: {
-    gap: 4,
-  },
-  title: {
-    fontSize: 26,
-    fontFamily: FontFamily.bold,
-    lineHeight: 32,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontFamily: FontFamily.regular,
-    lineHeight: 22,
-  },
-  formGroup: {
-    gap: 16,
-  },
-  inputContainer: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 13,
-    fontFamily: FontFamily.semiBold,
-  },
-  optionalTag: {
-    fontSize: 11,
-    fontFamily: FontFamily.regular,
-  },
+  headerBlock: { gap: 4 },
+  title: { fontSize: 24, fontFamily: FontFamily.bold, lineHeight: 30 },
+  subtitle: { fontSize: 14, fontFamily: FontFamily.regular, lineHeight: 22 },
+  formGroup: { gap: 16 },
+  inputContainer: { gap: 6 },
+  label: { fontSize: 13, fontFamily: FontFamily.semiBold },
+  optionalTag: { fontSize: 11, fontFamily: FontFamily.regular },
   typeGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -458,10 +382,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  typeCardText: {
-    fontSize: 14,
-    fontFamily: FontFamily.bold,
-  },
+  typeCardText: { fontSize: 14, fontFamily: FontFamily.bold },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -469,12 +390,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
   },
-  inputIcon: {
-    paddingLeft: 14,
-  },
-  rightIcon: {
-    paddingRight: 14,
-  },
+  inputIcon: { paddingLeft: 14 },
+  rightIcon: { paddingRight: 14 },
   input: {
     flex: 1,
     fontSize: 15,
@@ -482,10 +399,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 14,
   },
-  plateInput: {
-    fontFamily: FontFamily.bold,
-    letterSpacing: 1,
-  },
+  plateInput: { fontFamily: FontFamily.bold, letterSpacing: 1 },
   fieldError: {
     fontSize: 11,
     fontFamily: FontFamily.medium,
@@ -498,10 +412,7 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: -8,
   },
-  errorText: {
-    fontSize: 13,
-    fontFamily: FontFamily.medium,
-  },
+  errorText: { fontSize: 13, fontFamily: FontFamily.medium },
   button: {
     flexDirection: "row",
     alignItems: "center",
@@ -511,12 +422,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginTop: 4,
   },
-  buttonDisabled: {
-    opacity: 0.45,
-  },
-  buttonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontFamily: FontFamily.bold,
-  },
+  buttonDisabled: { opacity: 0.45 },
+  buttonText: { color: "#ffffff", fontSize: 16, fontFamily: FontFamily.bold },
 });

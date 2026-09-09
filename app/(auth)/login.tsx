@@ -1,8 +1,6 @@
-// app/(auth)/login.tsx
-
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -51,11 +49,18 @@ export default function LoginScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const otpInputRef = useRef<TextInput>(null);
 
+  // Refs to avoid stale closures in effects
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const otpSentRef = useRef(otpSent);
+  otpSentRef.current = otpSent;
+
   const cleanedPhone = phone.replace(/\D/g, "").trim();
   const canSubmitPassword = cleanedPhone.length === 10 && password.length >= 8;
   const canSendOtp = cleanedPhone.length === 10;
 
-  // Clean raw phone input to standard Indian 10 digits
   const cleanInput = (text: string) => {
     let cleaned = text.replace(/\D/g, "");
     if (cleaned.startsWith("91") && cleaned.length > 10) {
@@ -66,7 +71,7 @@ export default function LoginScreen() {
     return cleaned.slice(0, 10);
   };
 
-  // Cooldown countdown timer for OTP
+  // Cooldown countdown timer — FIXED: uses functional update, no stale state
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = setInterval(() => {
@@ -81,19 +86,6 @@ export default function LoginScreen() {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // Auto-verify OTP when full length is entered
-  useEffect(() => {
-    if (
-      otp.length === OTP_LENGTH &&
-      !loading &&
-      activeTab === "otp" &&
-      otpSent
-    ) {
-      Keyboard.dismiss();
-      handleVerifyOtp(otp);
-    }
-  }, [otp]);
-
   // Handle Tab Switch smoothly
   function switchTab(tab: TabType) {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -103,6 +95,52 @@ export default function LoginScreen() {
       setOtp("");
     }
   }
+
+  // Action: Verify OTP — wrapped in useCallback to stabilize reference
+  const handleVerifyOtp = useCallback(
+    async (code: string) => {
+      if (loadingRef.current) return;
+      setError(null);
+      setLoading(true);
+
+      try {
+        const result = await authApi.verifyOtp(cleanedPhone, code);
+
+        if (result.is_new && result.temp_token) {
+          setTempToken(result.temp_token);
+          setTimeout(() => {
+            router.replace("/(auth)/set-password");
+          }, 150);
+        } else if (result.accessToken && result.rider) {
+          setAuth(result.rider, result.accessToken, result.refreshToken!);
+          const target = getRouteForRider(result.rider);
+          setTimeout(() => {
+            router.replace(target as any);
+          }, 150);
+        }
+      } catch (err: unknown) {
+        setOtp("");
+        setError(extractErrorMessage(err));
+        setTimeout(() => otpInputRef.current?.focus(), 100);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [cleanedPhone, setAuth, setTempToken],
+  );
+
+  // Auto-verify OTP when full length is entered — FIXED: uses refs for stale values
+  useEffect(() => {
+    if (
+      otp.length === OTP_LENGTH &&
+      !loadingRef.current &&
+      activeTabRef.current === "otp" &&
+      otpSentRef.current
+    ) {
+      Keyboard.dismiss();
+      handleVerifyOtp(otp);
+    }
+  }, [otp, handleVerifyOtp]);
 
   // Action: Password Login
   async function handlePasswordLogin() {
@@ -167,36 +205,6 @@ export default function LoginScreen() {
       setTimeout(() => otpInputRef.current?.focus(), 250);
     } catch (err: unknown) {
       setError(extractErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // Action: Verify OTP
-  async function handleVerifyOtp(code: string) {
-    if (loading) return;
-    setError(null);
-    setLoading(true);
-
-    try {
-      const result = await authApi.verifyOtp(cleanedPhone, code);
-
-      if (result.is_new && result.temp_token) {
-        setTempToken(result.temp_token);
-        setTimeout(() => {
-          router.replace("/(auth)/set-password");
-        }, 150);
-      } else if (result.accessToken && result.rider) {
-        setAuth(result.rider, result.accessToken, result.refreshToken!);
-        const target = getRouteForRider(result.rider);
-        setTimeout(() => {
-          router.replace(target as any);
-        }, 150);
-      }
-    } catch (err: unknown) {
-      setOtp("");
-      setError(extractErrorMessage(err));
-      setTimeout(() => otpInputRef.current?.focus(), 100);
     } finally {
       setLoading(false);
     }
@@ -519,7 +527,6 @@ export default function LoginScreen() {
               />
               {renderOtpBoxes()}
 
-              {/* Resend handler inside flow */}
               <View style={styles.resendInlineRow}>
                 <Text
                   style={[
@@ -562,7 +569,7 @@ export default function LoginScreen() {
             </View>
           )}
 
-          {/* Dynamic Action Buttons */}
+          {/* Error */}
           {error ? (
             <View style={styles.errorRow}>
               <MaterialIcons
@@ -576,6 +583,7 @@ export default function LoginScreen() {
             </View>
           ) : null}
 
+          {/* Action Buttons */}
           {activeTab === "password" ? (
             <TouchableOpacity
               style={[
@@ -796,14 +804,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
-  signUpText: {
-    fontSize: 14,
-    fontFamily: FontFamily.regular,
-  },
-  signUpLink: {
-    fontSize: 14,
-    fontFamily: FontFamily.bold,
-  },
+  signUpText: { fontSize: 14, fontFamily: FontFamily.regular },
+  signUpLink: { fontSize: 14, fontFamily: FontFamily.bold },
   termsText: {
     fontSize: 12,
     fontFamily: FontFamily.regular,
