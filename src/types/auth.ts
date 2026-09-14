@@ -80,13 +80,9 @@ export interface RiderProfile {
   created_at: string;
   last_seen_at: string | null;
   documents: RiderDocument[];
-
-  // ── NEW: Onboarding tracking ────────────────
   onboarding_step: OnboardingStep;
   submitted_for_review: boolean;
   is_resubmission: boolean;
-
-  // ── Computed flags (kept for compat) ────────
   has_personal_details: boolean;
   has_location: boolean;
   has_vehicle_details: boolean;
@@ -111,6 +107,7 @@ export interface AuthTokens {
 export interface VerifyOtpResponse {
   is_new?: boolean;
   temp_token?: string;
+  reset_token?: string;
   accessToken?: string;
   refreshToken?: string;
   expiresIn?: number;
@@ -129,6 +126,10 @@ export interface SetPasswordResponse {
   refreshToken: string;
   expiresIn: number;
   rider: RiderProfile;
+}
+
+export interface ResetPasswordResponse {
+  success: boolean;
 }
 
 export interface OnboardingSteps {

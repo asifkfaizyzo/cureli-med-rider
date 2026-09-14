@@ -1,10 +1,4 @@
-/**
- * @deprecated This file is kept ONLY for backward compatibility.
- * All storage now lives in src/lib/mmkvStorage.ts.
- *
- * ThemeContext.tsx imports StorageService from here.
- * Once ThemeContext is updated, this file can be deleted.
- */
+//src\services\storage.ts
 import { themeStorage, appStorage } from "../lib/mmkvStorage";
 
 export const StorageService = {

@@ -1,8 +1,11 @@
+// src/components/OnboardingWrapper.tsx
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ReactNode } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -93,14 +96,10 @@ const DOC_STEPS: OnboardingStep[] = [
 
 const STEP_ORDER: OnboardingStep[] = [...DETAILS_STEPS, ...DOC_STEPS];
 
-// ── Props ──────────────────────────────────────────────────────
-
 interface OnboardingWrapperProps {
   children: ReactNode;
   currentStep: OnboardingStep;
 }
-
-// ── Component ──────────────────────────────────────────────────
 
 export function OnboardingWrapper({
   children,
@@ -112,7 +111,7 @@ export function OnboardingWrapper({
 
   const meta = STEP_META[currentStep];
 
-  // If no meta (e.g., COMPLETED), just render children with no chrome
+  // If no meta (e.g., COMPLETED), just render children with no header chrome
   if (!meta) {
     return (
       <SafeAreaView
@@ -153,7 +152,6 @@ export function OnboardingWrapper({
     const isActiveSection = meta!.section === sectionKey;
     return (
       <View style={styles.sectionColumn}>
-        {/* Dot row */}
         <View style={styles.dotRow}>
           {steps.map((step, i) => {
             const stepIdx = STEP_ORDER.indexOf(step);
@@ -171,9 +169,9 @@ export function OnboardingWrapper({
                       borderColor: colors.brand.accent,
                     },
                     isCurrent && {
-                      backgroundColor: colors.brand.accent,
+                      backgroundColor: colors.background.page,
                       borderColor: colors.brand.accent,
-                      transform: [{ scale: 1.2 }],
+                      borderWidth: 2,
                     },
                     isFuture && {
                       backgroundColor: colors.background.input,
@@ -183,6 +181,14 @@ export function OnboardingWrapper({
                 >
                   {isComplete && (
                     <MaterialIcons name="check" size={10} color="#fff" />
+                  )}
+                  {isCurrent && (
+                    <View
+                      style={[
+                        styles.activeDotInner,
+                        { backgroundColor: colors.brand.accent },
+                      ]}
+                    />
                   )}
                 </View>
                 {i < steps.length - 1 && (
@@ -202,14 +208,13 @@ export function OnboardingWrapper({
           })}
         </View>
 
-        {/* Section label */}
         <Text
           style={[
             styles.sectionLabel,
             {
               color: isActiveSection
-                ? colors.text.primary
-                : colors.text.faint,
+                ? colors.brand.accent
+                : colors.text.muted,
             },
             isActiveSection && styles.sectionLabelActive,
           ]}
@@ -225,104 +230,117 @@ export function OnboardingWrapper({
       style={[styles.safe, { backgroundColor: colors.background.page }]}
       edges={["top", "bottom"]}
     >
-      {/* Top Bar */}
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          style={[
-            styles.topBtn,
-            !meta.backRoute && styles.topBtnDisabled,
-          ]}
-          onPress={handleBack}
-          disabled={!meta.backRoute}
-          hitSlop={10}
-        >
-          <MaterialIcons
-            name="arrow-back"
-            size={20}
-            color={
-              meta.backRoute ? colors.text.muted : colors.text.disabled
-            }
-          />
-          <Text
+      {/* Root KeyboardAvoidingView ensures header metrics are properly bypassed */}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
+      >
+        {/* Top Navigation Bar */}
+        <View style={styles.topBar}>
+          <TouchableOpacity
             style={[
-              styles.topBtnText,
-              {
-                color: meta.backRoute
-                  ? colors.text.muted
-                  : colors.text.disabled,
-              },
+              styles.topBtn,
+              !meta.backRoute && styles.topBtnDisabled,
             ]}
+            onPress={handleBack}
+            disabled={!meta.backRoute}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            Back
-          </Text>
-        </TouchableOpacity>
+            <MaterialIcons
+              name="chevron-left"
+              size={22}
+              color={
+                meta.backRoute ? colors.text.secondary : colors.text.disabled
+              }
+            />
+            <Text
+              style={[
+                styles.topBtnText,
+                {
+                  color: meta.backRoute
+                    ? colors.text.secondary
+                    : colors.text.disabled,
+                },
+              ]}
+            >
+              Back
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.topBtn}
-          onPress={handleLogout}
-          hitSlop={10}
-        >
-          <MaterialIcons
-            name="logout"
-            size={18}
-            color={colors.status.error}
-          />
-          <Text style={[styles.topBtnText, { color: colors.status.error }]}>
-            Log out
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={[styles.topBtn, styles.logoutBtn]}
+            onPress={handleLogout}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <MaterialIcons
+              name="logout"
+              size={16}
+              color={colors.status.error}
+            />
+            <Text style={[styles.topBtnText, { color: colors.status.error }]}>
+              Log out
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Stepper */}
-      <View style={styles.stepperContainer}>
-        {renderSectionDots("details", DETAILS_STEPS)}
-
-        {/* Divider line between sections */}
+        {/* progress Stepper */}
         <View
           style={[
-            styles.sectionDivider,
-            {
-              backgroundColor:
-                meta.section === "docs"
-                  ? colors.brand.accent
-                  : colors.border.input,
-            },
+            styles.stepperContainer,
+            { borderBottomColor: colors.border.subtle },
           ]}
-        />
+        >
+          {renderSectionDots("details", DETAILS_STEPS)}
 
-        {renderSectionDots("docs", DOC_STEPS)}
-      </View>
+          <View
+            style={[
+              styles.sectionDivider,
+              {
+                backgroundColor:
+                  meta.section === "docs"
+                    ? colors.brand.accent
+                    : colors.border.input,
+              },
+            ]}
+          />
 
-      {/* Content */}
-      <View style={styles.content}>{children}</View>
+          {renderSectionDots("docs", DOC_STEPS)}
+        </View>
+
+        {/* Content Box */}
+        <View style={styles.content}>{children}</View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  flex: { flex: 1 },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   topBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 2,
     paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
+  },
+  logoutBtn: {
+    gap: 6,
   },
   topBtnDisabled: {
-    opacity: 0.4,
+    opacity: 0.35,
   },
   topBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: FontFamily.semiBold,
   },
   stepperContainer: {
@@ -330,7 +348,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingTop: 8,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
     gap: 8,
   },
   sectionColumn: {
@@ -347,31 +367,38 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   dot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
   },
+  activeDotInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   connector: {
-    width: 12,
-    height: 2,
-    borderRadius: 1,
+    width: 14,
+    height: 2.5,
+    borderRadius: 1.25,
   },
   sectionLabel: {
     fontSize: 10,
     fontFamily: FontFamily.bold,
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
+    opacity: 0.6,
   },
   sectionLabelActive: {
     fontFamily: FontFamily.bold,
+    opacity: 1.0,
   },
   sectionDivider: {
-    width: 20,
-    height: 2,
-    borderRadius: 1,
-    marginBottom: 20, // aligns with dot row (not label)
+    width: 24,
+    height: 2.5,
+    borderRadius: 1.25,
+    marginBottom: 18,
   },
   content: {
     flex: 1,

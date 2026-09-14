@@ -1,20 +1,21 @@
-// app/(auth)/phone.tsx
-
+// app/(auth)/phone.tsx — Variation 1: Clean Centered
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { authApi } from "../../src/features/auth/api/auth.api";
+import { PhoneField } from "../../src/features/auth/components/AuthInputs";
 import { useTheme } from "../../src/theme/ThemeContext";
 import { FontFamily } from "../../src/theme/typography";
 
@@ -30,11 +31,10 @@ export default function PhoneScreen() {
 
   const cleanInput = (text: string) => {
     let cleaned = text.replace(/\D/g, "");
-    if (cleaned.startsWith("91") && cleaned.length > 10) {
+    if (cleaned.startsWith("91") && cleaned.length > 10)
       cleaned = cleaned.substring(2);
-    } else if (cleaned.startsWith("0") && cleaned.length > 10) {
+    else if (cleaned.startsWith("0") && cleaned.length > 10)
       cleaned = cleaned.substring(1);
-    }
     return cleaned.slice(0, 10);
   };
 
@@ -42,15 +42,11 @@ export default function PhoneScreen() {
     if (!isValid) return;
     setError(null);
     setLoading(true);
-
     try {
       const result = await authApi.checkPhone(phone);
-
       if (result.exists) {
-        // Existing rider → go to login screen (which has password/OTP tabs)
         router.push({ pathname: "/(auth)/login", params: { phone } });
       } else {
-        // New rider → send OTP and go to verification
         try {
           await authApi.sendOtp(phone);
           router.push({ pathname: "/(auth)/otp", params: { phone } });
@@ -82,81 +78,51 @@ export default function PhoneScreen() {
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View style={styles.inner}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.wordmark, { color: colors.text.primary }]}>
-              cureli
-            </Text>
-            <Text style={[styles.tagline, { color: colors.text.faint }]}>
-              Delivery Partner
-            </Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          {/* Logo + Cureli on SAME line */}
+          <View style={styles.brandRow}>
+            <Image
+              source={require("../../assets/images/cureli_rider_logo.png")}
+              style={styles.logo}
+            />
+            <View>
+              <Text style={[styles.brandName, { color: colors.text.logo }]}>
+                Cureli
+              </Text>
+              <Text
+                style={[styles.brandSubtitle, { color: colors.text.muted }]}
+              >
+                Delivery Partner
+              </Text>
+            </View>
           </View>
 
-          {/* Premium Registration Card */}
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: colors.background.input,
-                borderColor: colors.border.input,
-              },
-            ]}
-          >
-            <Text style={[styles.title, { color: colors.text.primary }]}>
-              Create your account
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.text.muted }]}>
-              Enter your mobile number to check your status and get started.
-            </Text>
+          {/* Title block */}
+          <Text style={[styles.title, { color: colors.text.primary }]}>
+            Create your account
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.text.muted }]}>
+            Enter your mobile number to get started as a Cureli delivery
+            partner.
+          </Text>
 
-            {/* Input Row */}
-            <View
-              style={[
-                styles.inputRow,
-                {
-                  backgroundColor: colors.background.input,
-                  borderColor: error
-                    ? colors.status.error
-                    : colors.border.input,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.prefixContainer,
-                  {
-                    backgroundColor: isDark
-                      ? colors.background.elevated
-                      : "#f1f5f9",
-                    borderRightColor: colors.border.input,
-                  },
-                ]}
-              >
-                <Text style={styles.prefixFlag}>🇮🇳</Text>
-                <Text
-                  style={[styles.prefixText, { color: colors.text.secondary }]}
-                >
-                  +91
-                </Text>
-              </View>
-
-              <TextInput
-                style={[styles.input, { color: colors.text.primary }]}
-                placeholder="98765 43210"
-                placeholderTextColor={colors.text.faint}
-                keyboardType="number-pad"
-                maxLength={10}
-                value={phone}
-                onChangeText={(t) => {
-                  setPhone(cleanInput(t));
-                  setError(null);
-                }}
-                returnKeyType="done"
-                onSubmitEditing={handleContinue}
-                editable={!loading}
-              />
-            </View>
+          {/* Phone */}
+          <View style={styles.form}>
+            <PhoneField
+              phone={phone}
+              onChange={(t: string) => {
+                setPhone(cleanInput(t));
+                setError(null);
+              }}
+              error={!!error}
+              disabled={loading}
+              otpSent={false}
+            />
 
             {error && (
               <View style={styles.errorRow}>
@@ -181,7 +147,7 @@ export default function PhoneScreen() {
                     ? isDark
                       ? colors.brand.accent
                       : colors.brand.primary
-                    : colors.border.input,
+                    : colors.border.default,
                 },
                 (!isValid || loading) && styles.buttonDisabled,
               ]}
@@ -190,37 +156,51 @@ export default function PhoneScreen() {
               activeOpacity={0.85}
             >
               {loading ? (
-                <ActivityIndicator color="#ffffff" size="small" />
+                <ActivityIndicator color="#fff" size="small" />
               ) : (
                 <>
                   <Text style={styles.buttonText}>Continue</Text>
-                  <MaterialIcons
-                    name="arrow-forward"
-                    size={18}
-                    color="#ffffff"
-                  />
+                  <MaterialIcons name="arrow-forward" size={18} color="#fff" />
                 </>
               )}
             </TouchableOpacity>
           </View>
 
-          {/* REDIRECTION BACK TO LOGIN */}
-          <View style={styles.loginLinkContainer}>
-            <Text style={[styles.loginLinkText, { color: colors.text.muted }]}>
-              Already have an account?{" "}
-            </Text>
-            <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
-              <Text style={[styles.loginLink, { color: colors.brand.accent }]}>
-                Log in
+          {/* Footer */}
+          <View style={styles.footer}>
+            <View style={styles.loginRow}>
+              <Text style={[styles.loginText, { color: colors.text.muted }]}>
+                Already have an account?{" "}
               </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push("/(auth)/login")}
+                hitSlop={8}
+              >
+                <Text
+                  style={[styles.loginLink, { color: colors.brand.accent }]}
+                >
+                  Log in
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.terms, { color: colors.text.faint }]}>
+              By continuing, you agree to our{" "}
+              <Text
+                style={{ color: colors.brand.accent }}
+                onPress={() => router.push("/terms")}
+              >
+                Terms
+              </Text>{" "}
+              and{" "}
+              <Text
+                style={{ color: colors.brand.accent }}
+                onPress={() => router.push("/privacy")}
+              >
+                Privacy Policy
+              </Text>
+            </Text>
           </View>
-
-          <Text style={[styles.termsFooter, { color: colors.text.faint }]}>
-            By continuing, you agree to Cureli's{"\n"}
-            Terms of Service and Privacy Policy
-          </Text>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -229,113 +209,75 @@ export default function PhoneScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   flex: { flex: 1 },
-  inner: {
-    flex: 1,
-    paddingHorizontal: 24,
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
-    gap: 24,
+    paddingHorizontal: 28,
+    paddingVertical: 40,
   },
-  header: { alignItems: "center", gap: 4 },
-  wordmark: {
-    fontSize: 36,
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginBottom: 36,
+  },
+  logo: { width: 78, height: 78, resizeMode: "contain" },
+  brandName: {
+    fontSize: 50,
+    paddingTop: 8,
+    paddingBottom: 8,
     fontFamily: FontFamily.amulyaBold,
-    letterSpacing: -0.5,
+    lineHeight: 30,
   },
-  tagline: {
-    fontSize: 13,
-    fontFamily: FontFamily.regular,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-  },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1.5,
-    padding: 24,
-    gap: 12,
+  brandSubtitle: {
+    fontSize: 9,
+    paddingLeft: 6,
+    fontFamily: FontFamily.medium,
+    letterSpacing: 0.5,
+    marginTop: 1,
   },
   title: {
-    fontSize: 20,
+    fontSize: 26,
     fontFamily: FontFamily.bold,
+    textAlign: "center",
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
     fontFamily: FontFamily.regular,
-    lineHeight: 22,
+    textAlign: "center",
+    lineHeight: 21,
+    marginBottom: 28,
+    paddingHorizontal: 8,
   },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderRadius: 14,
-    height: 56,
-    marginTop: 4,
-    overflow: "hidden",
-  },
-  prefixContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 16,
-    height: "100%",
-    borderRightWidth: 1.5,
-  },
-  prefixFlag: { fontSize: 18 },
-  prefixText: {
-    fontSize: 16,
-    fontFamily: FontFamily.semiBold,
-  },
-  input: {
-    flex: 1,
-    paddingHorizontal: 16,
-    fontSize: 18,
-    fontFamily: FontFamily.semiBold,
-    letterSpacing: 1,
-  },
+  form: { gap: 14, width: "100%" },
   errorRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
-    marginTop: 2,
   },
-  errorText: {
-    fontSize: 13,
-    fontFamily: FontFamily.medium,
-    flex: 1,
-  },
+  errorText: { fontSize: 13, fontFamily: FontFamily.medium, flexShrink: 1 },
   button: {
-    height: 52,
+    height: 54,
     borderRadius: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    marginTop: 8,
+    marginTop: 4,
   },
-  buttonDisabled: { opacity: 0.45 },
-  buttonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontFamily: FontFamily.bold,
-  },
-  loginLinkContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 8,
-  },
-  loginLinkText: {
-    fontSize: 14,
-    fontFamily: FontFamily.regular,
-  },
-  loginLink: {
-    fontSize: 14,
-    fontFamily: FontFamily.bold,
-  },
-  termsFooter: {
+  buttonDisabled: { opacity: 1 },
+  buttonText: { color: "#fff", fontSize: 16, fontFamily: FontFamily.bold },
+  footer: { marginTop: 36, alignItems: "center", gap: 16 },
+  loginRow: { flexDirection: "row", alignItems: "center" },
+  loginText: { fontSize: 14, fontFamily: FontFamily.regular },
+  loginLink: { fontSize: 14, fontFamily: FontFamily.bold },
+  terms: {
     fontSize: 12,
     fontFamily: FontFamily.regular,
     textAlign: "center",
     lineHeight: 18,
-    marginTop: 12,
   },
 });

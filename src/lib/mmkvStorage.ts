@@ -1,3 +1,4 @@
+//src\lib\mmkvStorage.ts
 import { MMKV } from "react-native-mmkv";
 import { createJSONStorage } from "zustand/middleware";
 
@@ -22,7 +23,7 @@ export const themeStorage = {
   get: (): "light" | "dark" => {
     const val = mmkv.getString("app.theme_preference");
     if (val === "light" || val === "dark") return val;
-    return "dark"; // default to dark
+    return "light"; // default to light
   },
   set: (pref: "light" | "dark"): void => {
     mmkv.set("app.theme_preference", pref);

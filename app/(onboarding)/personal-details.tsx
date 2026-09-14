@@ -1,5 +1,3 @@
-//app\(onboarding)\personal-details.tsx
-
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -57,6 +55,10 @@ export default function PersonalDetailsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  // Focus States
+  const [isNameFocused, setIsNameFocused] = useState(false);
+  const [isEmailFocused, setIsEmailFocused] = useState(false);
+
   // Track field touch status
   const [touched, setTouched] = useState({
     name: false,
@@ -80,7 +82,7 @@ export default function PersonalDetailsScreen() {
           }
         }
       } catch {
-        // Silent fail — user can still fill fresh
+        // Silent fail — user can still fill fresh info
       } finally {
         setInitialLoading(false);
       }
@@ -179,17 +181,18 @@ export default function PersonalDetailsScreen() {
           showsVerticalScrollIndicator={false}
           automaticallyAdjustKeyboardInsets={true}
         >
+          {/* Header */}
           <View style={styles.headerBlock}>
             <Text style={[styles.title, { color: colors.text.primary }]}>
               Personal Details
             </Text>
             <Text style={[styles.subtitle, { color: colors.text.muted }]}>
-              Please provide your official information to get started.
+              Please provide your official information as shown on your documents.
             </Text>
           </View>
 
           <View style={styles.formGroup}>
-            {/* Name */}
+            {/* Full Name Input */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Full Name *
@@ -202,6 +205,8 @@ export default function PersonalDetailsScreen() {
                     borderColor:
                       touched.name && !isNameValid
                         ? colors.status.error
+                        : isNameFocused
+                        ? colors.border.inputFocused
                         : colors.border.input,
                   },
                 ]}
@@ -209,7 +214,7 @@ export default function PersonalDetailsScreen() {
                 <MaterialIcons
                   name="person-outline"
                   size={20}
-                  color={colors.text.faint}
+                  color={isNameFocused ? colors.brand.accent : colors.text.faint}
                   style={styles.inputIcon}
                 />
                 <TextInput
@@ -218,29 +223,34 @@ export default function PersonalDetailsScreen() {
                   placeholderTextColor={colors.text.faint}
                   value={name}
                   onChangeText={setName}
-                  onBlur={() => setTouched((p) => ({ ...p, name: true }))}
+                  onFocus={() => setIsNameFocused(true)}
+                  onBlur={() => {
+                    setIsNameFocused(false);
+                    setTouched((p) => ({ ...p, name: true }));
+                  }}
                   autoCapitalize="words"
                   editable={!loading}
                 />
                 {touched.name && isNameValid && (
                   <MaterialIcons
                     name="check-circle"
-                    size={18}
+                    size={20}
                     color={colors.status.success}
                     style={styles.rightIcon}
                   />
                 )}
               </View>
               {touched.name && !isNameValid && (
-                <Text
-                  style={[styles.fieldError, { color: colors.status.error }]}
-                >
-                  Please enter at least 2 characters
-                </Text>
+                <View style={styles.fieldErrorRow}>
+                  <MaterialIcons name="error-outline" size={13} color={colors.status.error} />
+                  <Text style={[styles.fieldError, { color: colors.status.error }]}>
+                    Please enter at least 2 characters
+                  </Text>
+                </View>
               )}
             </View>
 
-            {/* Email */}
+            {/* Email Address Input */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Email Address *
@@ -253,6 +263,8 @@ export default function PersonalDetailsScreen() {
                     borderColor:
                       touched.email && !isEmailValid
                         ? colors.status.error
+                        : isEmailFocused
+                        ? colors.border.inputFocused
                         : colors.border.input,
                   },
                 ]}
@@ -260,7 +272,7 @@ export default function PersonalDetailsScreen() {
                 <MaterialIcons
                   name="mail-outline"
                   size={20}
-                  color={colors.text.faint}
+                  color={isEmailFocused ? colors.brand.accent : colors.text.faint}
                   style={styles.inputIcon}
                 />
                 <TextInput
@@ -269,7 +281,11 @@ export default function PersonalDetailsScreen() {
                   placeholderTextColor={colors.text.faint}
                   value={email}
                   onChangeText={setEmail}
-                  onBlur={() => setTouched((p) => ({ ...p, email: true }))}
+                  onFocus={() => setIsEmailFocused(true)}
+                  onBlur={() => {
+                    setIsEmailFocused(false);
+                    setTouched((p) => ({ ...p, email: true }));
+                  }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -278,22 +294,23 @@ export default function PersonalDetailsScreen() {
                 {touched.email && isEmailValid && (
                   <MaterialIcons
                     name="check-circle"
-                    size={18}
+                    size={20}
                     color={colors.status.success}
                     style={styles.rightIcon}
                   />
                 )}
               </View>
               {touched.email && !isEmailValid && (
-                <Text
-                  style={[styles.fieldError, { color: colors.status.error }]}
-                >
-                  Enter a valid email address
-                </Text>
+                <View style={styles.fieldErrorRow}>
+                  <MaterialIcons name="error-outline" size={13} color={colors.status.error} />
+                  <Text style={[styles.fieldError, { color: colors.status.error }]}>
+                    Enter a valid email address
+                  </Text>
+                </View>
               )}
             </View>
 
-            {/* DOB */}
+            {/* Date of Birth Input */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Date of Birth *
@@ -312,6 +329,8 @@ export default function PersonalDetailsScreen() {
                     borderColor:
                       touched.dob && !isDobValid
                         ? colors.status.error
+                        : showDatePicker
+                        ? colors.border.inputFocused
                         : colors.border.input,
                   },
                 ]}
@@ -319,7 +338,7 @@ export default function PersonalDetailsScreen() {
                 <MaterialIcons
                   name="cake"
                   size={20}
-                  color={colors.text.faint}
+                  color={showDatePicker ? colors.brand.accent : colors.text.faint}
                   style={styles.inputIcon}
                 />
                 <Text
@@ -339,17 +358,16 @@ export default function PersonalDetailsScreen() {
                 />
               </TouchableOpacity>
               {touched.dob && !isDobValid && (
-                <Text
-                  style={[styles.fieldError, { color: colors.status.error }]}
-                >
-                  {!dob
-                    ? "Date of birth is required"
-                    : "Must be at least 18 years old"}
-                </Text>
+                <View style={styles.fieldErrorRow}>
+                  <MaterialIcons name="error-outline" size={13} color={colors.status.error} />
+                  <Text style={[styles.fieldError, { color: colors.status.error }]}>
+                    {!dob ? "Date of birth is required" : "Must be at least 18 years old"}
+                  </Text>
+                </View>
               )}
             </View>
 
-            {/* Gender */}
+            {/* Gender Selection Row */}
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Gender *
@@ -357,6 +375,7 @@ export default function PersonalDetailsScreen() {
               <View style={styles.genderRow}>
                 {GENDERS.map((g) => {
                   const isSelected = gender === g;
+                  const activeBg = isDark ? colors.brand.accent : colors.brand.primary;
                   return (
                     <TouchableOpacity
                       key={g}
@@ -364,10 +383,10 @@ export default function PersonalDetailsScreen() {
                         styles.genderBtn,
                         {
                           backgroundColor: isSelected
-                            ? colors.brand.accent
+                            ? activeBg
                             : colors.background.input,
                           borderColor: isSelected
-                            ? colors.brand.accent
+                            ? activeBg
                             : colors.border.input,
                         },
                       ]}
@@ -380,10 +399,10 @@ export default function PersonalDetailsScreen() {
                     >
                       {isSelected && (
                         <MaterialIcons
-                          name="check"
+                          name="check-circle"
                           size={16}
                           color="#ffffff"
-                          style={{ marginRight: 4 }}
+                          style={{ marginRight: 6 }}
                         />
                       )}
                       <Text
@@ -405,6 +424,7 @@ export default function PersonalDetailsScreen() {
             </View>
           </View>
 
+          {/* Form Level Error Row */}
           {error && (
             <View style={styles.errorRow}>
               <MaterialIcons
@@ -418,6 +438,7 @@ export default function PersonalDetailsScreen() {
             </View>
           )}
 
+          {/* Form Action Button */}
           <TouchableOpacity
             style={[
               styles.button,
@@ -444,6 +465,7 @@ export default function PersonalDetailsScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* Date Picker Modal */}
       <CustomDatePickerModal
         visible={showDatePicker}
         initialDate={dob}
@@ -461,7 +483,7 @@ export default function PersonalDetailsScreen() {
   );
 }
 
-// ── CUSTOM DATE PICKER (unchanged from original) ───────────────
+// ── CUSTOM DATE PICKER ──────────────────────────────────────────
 
 interface CustomDatePickerModalProps {
   visible: boolean;
@@ -543,7 +565,7 @@ function CustomDatePickerModal({
             animated: true,
             viewPosition: 0.5,
           });
-      }, 100);
+      }, 120);
     }
   }, [visible]);
 
@@ -562,10 +584,11 @@ function CustomDatePickerModal({
             { backgroundColor: colors.background.elevated },
           ]}
         >
+          {/* Modal Header */}
           <View
             style={[
               styles.modalHeader,
-              { borderBottomColor: colors.border.input },
+              { borderBottomColor: colors.border.subtle },
             ]}
           >
             <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
@@ -580,9 +603,11 @@ function CustomDatePickerModal({
             </TouchableOpacity>
           </View>
 
+          {/* Three-Column Picker */}
           <View style={styles.columnsContainer}>
+            {/* Day Column */}
             <View style={styles.pickerColumn}>
-              <Text style={[styles.columnLabel, { color: colors.text.faint }]}>
+              <Text style={[styles.columnLabel, { color: colors.text.muted }]}>
                 Day
               </Text>
               <FlatList
@@ -592,8 +617,8 @@ function CustomDatePickerModal({
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.listPadding}
                 getItemLayout={(_, index) => ({
-                  length: 44,
-                  offset: 44 * index,
+                  length: 46,
+                  offset: 46 * index,
                   index,
                 })}
                 renderItem={({ item }) => {
@@ -628,8 +653,9 @@ function CustomDatePickerModal({
               />
             </View>
 
+            {/* Month Column */}
             <View style={styles.pickerColumn}>
-              <Text style={[styles.columnLabel, { color: colors.text.faint }]}>
+              <Text style={[styles.columnLabel, { color: colors.text.muted }]}>
                 Month
               </Text>
               <FlatList
@@ -639,8 +665,8 @@ function CustomDatePickerModal({
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.listPadding}
                 getItemLayout={(_, index) => ({
-                  length: 44,
-                  offset: 44 * index,
+                  length: 46,
+                  offset: 46 * index,
                   index,
                 })}
                 renderItem={({ item, index }) => {
@@ -675,8 +701,9 @@ function CustomDatePickerModal({
               />
             </View>
 
+            {/* Year Column */}
             <View style={styles.pickerColumn}>
-              <Text style={[styles.columnLabel, { color: colors.text.faint }]}>
+              <Text style={[styles.columnLabel, { color: colors.text.muted }]}>
                 Year
               </Text>
               <FlatList
@@ -686,8 +713,8 @@ function CustomDatePickerModal({
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.listPadding}
                 getItemLayout={(_, index) => ({
-                  length: 44,
-                  offset: 44 * index,
+                  length: 46,
+                  offset: 46 * index,
                   index,
                 })}
                 renderItem={({ item }) => {
@@ -723,18 +750,19 @@ function CustomDatePickerModal({
             </View>
           </View>
 
+          {/* Modal Buttons */}
           <View style={styles.modalFooter}>
             <TouchableOpacity
               onPress={onClose}
               style={[
                 styles.modalFooterBtn,
-                { borderColor: colors.border.input, borderWidth: 1 },
+                { borderColor: colors.border.input, borderWidth: 1.5 },
               ]}
             >
               <Text
                 style={[
                   styles.modalFooterBtnText,
-                  { color: colors.text.muted },
+                  { color: colors.text.secondary },
                 ]}
               >
                 Cancel
@@ -771,16 +799,16 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 8,
+    paddingTop: 12,
     paddingBottom: 40,
     gap: 24,
   },
-  headerBlock: { gap: 4 },
+  headerBlock: { gap: 6 },
   title: { fontSize: 24, fontFamily: FontFamily.bold, lineHeight: 30 },
   subtitle: { fontSize: 14, fontFamily: FontFamily.regular, lineHeight: 22 },
-  formGroup: { gap: 16 },
+  formGroup: { gap: 18 },
   inputContainer: { gap: 6 },
-  label: { fontSize: 13, fontFamily: FontFamily.semiBold },
+  label: { fontSize: 13, fontFamily: FontFamily.semiBold, paddingLeft: 2 },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -798,11 +826,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   dateText: { paddingVertical: 16 },
+  fieldErrorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+    paddingLeft: 2,
+  },
   fieldError: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: FontFamily.medium,
-    marginTop: 2,
-    marginLeft: 2,
   },
   genderRow: { flexDirection: "row", gap: 10 },
   genderBtn: {
@@ -829,19 +862,19 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 16,
     borderRadius: 14,
-    marginTop: 4,
+    marginTop: 8,
   },
   buttonDisabled: { opacity: 0.45 },
   buttonText: { color: "#ffffff", fontSize: 16, fontFamily: FontFamily.bold },
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "flex-end",
   },
   modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingBottom: 36,
   },
   modalHeader: {
@@ -849,34 +882,35 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 24,
-    paddingVertical: 18,
-    borderBottomWidth: 1.5,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
   },
   modalTitle: { fontSize: 18, fontFamily: FontFamily.bold },
   closeBtn: { padding: 4 },
   columnsContainer: {
     flexDirection: "row",
-    paddingHorizontal: 12,
-    height: 240,
-    marginTop: 12,
+    paddingHorizontal: 16,
+    height: 250,
+    marginTop: 16,
   },
   pickerColumn: { flex: 1, marginHorizontal: 4 },
   columnLabel: {
     textAlign: "center",
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FontFamily.bold,
     textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 8,
+    letterSpacing: 1.5,
+    marginBottom: 10,
+    opacity: 0.8,
   },
-  listPadding: { paddingBottom: 24 },
+  listPadding: { paddingBottom: 40 },
   itemBtn: {
-    paddingVertical: 12,
+    paddingVertical: 11,
     alignItems: "center",
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: 12,
+    borderWidth: 1.5,
     borderColor: "transparent",
-    marginVertical: 2,
+    marginVertical: 3,
   },
   itemText: { fontSize: 16, fontFamily: FontFamily.medium },
   itemTextSelected: { fontFamily: FontFamily.bold },
@@ -884,12 +918,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     paddingHorizontal: 24,
-    marginTop: 24,
+    marginTop: 20,
   },
   modalFooterBtn: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -1,4 +1,4 @@
-//cureli-rider-app\src\theme\colors.ts
+// src/theme/colors.ts
 export interface ColorPalette {
   brand: {
     primary: string;
@@ -24,6 +24,7 @@ export interface ColorPalette {
   };
   text: {
     primary: string;
+    logo: string;
     secondary: string;
     muted: string;
     faint: string;
@@ -68,15 +69,15 @@ export interface ColorPalette {
 }
 
 // ── Light palette ─────────────────────────────────────────────
-
 export const LightColors: ColorPalette = {
   brand: {
-    primary: "#16044d",
-    secondary: "#0a0280",
-    mid: "#1a10a0",
-    light: "#3b2fd4",
-    soft: "#6366f1",
-    accent: "#6b44dc",
+    primary: "#6A20CD",      // Main purple
+          // Main purple
+    secondary: "#0C97B8",    // Teal
+    mid: "#B084EB",          // Mid purple
+    light: "#DFC7FF",        // Lightest purple
+    soft: "#C6AAEC",         // Soft purple
+    accent: "#6A20CD",       // Accent purple
     primaryText: "#ffffff",
     primaryTextMuted: "rgba(255,255,255,0.6)",
     primaryTextSubtle: "rgba(255,255,255,0.15)",
@@ -84,30 +85,31 @@ export const LightColors: ColorPalette = {
     primaryThumbBorder: "rgba(255,255,255,0.3)",
   },
   background: {
-    page: "#f8fafc",
+    page: "#ffffff",         // Changed to white for clean onboarding
     card: "#ffffff",
     elevated: "#ffffff",
-    tint: "#eef2ff",
-    accent: "#e0e7ff",
+    tint: "#F4F0FA",         // Tinted based on primary
+    accent: "#DFC7FF",
     input: "#f8fafc",
     trans: "transparent",
   },
   text: {
-    primary: "#0f172a",
+    primary: "#000000",
+    logo: "#131B63",
     secondary: "#374151",
-    muted: "#64748b",
-    faint: "#94a3b8",
-    disabled: "#cbd5e1",
-    brand: "#4338ca",
+    muted: "#8c8c8c",        // Muted grey for subtitles
+    faint: "#d1d1d1",
+    disabled: "#e5e5e5",
+    brand: "#6A20CD",        // Purple text
     inverse: "#ffffff",
   },
   border: {
-    default: "#e2e8f0",
+    default: "#E5E7EB",      // Light grey borders
     subtle: "#f1f5f9",
-    brand: "#c7d2fe",
-    strong: "#6366f1",
+    brand: "#C6AAEC",
+    strong: "#6A20CD",
     input: "#e2e8f0",
-    inputFocused: "#090025",
+    inputFocused: "#6A20CD",
   },
   status: {
     success: "#22c55e",
@@ -118,8 +120,8 @@ export const LightColors: ColorPalette = {
     error: "#ef4444",
     errorBg: "#fef2f2",
     errorBorder: "#fecaca",
-    info: "#3b82f6",
-    infoBg: "#eff6ff",
+    info: "#0C97B8",
+    infoBg: "#e0f6fc",
   },
   overlay: {
     dark: "rgba(0,0,0,0.5)",
@@ -127,57 +129,57 @@ export const LightColors: ColorPalette = {
     medium: "rgba(255,255,255,0.2)",
   },
   tab: {
-    active: "#090025",
-    inactive: "#94a3b8",
+    active: "#6A20CD",
+    inactive: "#8c8c8c",
     background: "#ffffff",
-    border: "#e2e8f0",
-    itemactive: "#30215f",
-    iteminactive: "#94a3b8",
+    border: "#E5E7EB",
+    itemactive: "#6A20CD",
+    iteminactive: "#8c8c8c",
   },
   transparent: "transparent",
 };
 
 // ── Dark palette ──────────────────────────────────────────────
-
 export const DarkColors: ColorPalette = {
   brand: {
-    primary: "#8b7cf6",
-    secondary: "#7c6df0",
-    mid: "#6d5de8",
-    light: "#a78bfa",
-    soft: "#4c3d99",
-    accent: "#9b7aed",
-    primaryText: "#0f0a2e",
-    primaryTextMuted: "rgba(15,10,46,0.6)",
-    primaryTextSubtle: "rgba(15,10,46,0.15)",
-    primaryBadgeBg: "rgba(15,10,46,0.2)",
-    primaryThumbBorder: "rgba(15,10,46,0.25)",
+    primary: "#6A20CD",      // Keep primary button solid purple
+    secondary: "#0C97B8",
+    mid: "#B084EB",
+    light: "#DFC7FF",
+    soft: "#C6AAEC",
+    accent: "#B084EB",       // Lighter accent for dark mode readability
+    primaryText: "#ffffff",
+    primaryTextMuted: "rgba(255,255,255,0.6)",
+    primaryTextSubtle: "rgba(255,255,255,0.15)",
+    primaryBadgeBg: "rgba(255,255,255,0.2)",
+    primaryThumbBorder: "rgba(255,255,255,0.25)",
   },
   background: {
-    page: "#0a0a0a",
-    card: "#1c1c1e",
-    elevated: "#2c2c2e",
-    tint: "#1a1530",
-    accent: "#231845",
-    input: "#1c1c1e",
+    page: "#121212",
+    card: "#1E1E1E",
+    elevated: "#2C2C2E",
+    tint: "#1F1A2A",
+    accent: "#2D1D4A",
+    input: "#1E1E1E",
     trans: "transparent",
   },
   text: {
-    primary: "#f5f5f5",
-    secondary: "#d1d1d1",
-    muted: "#8e8e93",
-    faint: "#636366",
-    disabled: "#48484a",
-    brand: "#a78bfa",
-    inverse: "#0a0a0a",
+    primary: "#ffffff",
+    logo: "#38bdf8",
+    secondary: "#E5E7EB",
+    muted: "#9CA3AF",
+    faint: "#4B5563",
+    disabled: "#374151",
+    brand: "#B084EB",        // High contrast purple text for dark mode
+    inverse: "#000000",
   },
   border: {
-    default: "#2c2c2e",
-    subtle: "#1c1c1e",
-    brand: "#3b2f80",
-    strong: "#7c6df0",
-    input: "#3a3a3c",
-    inputFocused: "#8b7cf6",
+    default: "#374151",
+    subtle: "#1F2937",
+    brand: "#4A1A8C",
+    strong: "#B084EB",
+    input: "#374151",
+    inputFocused: "#B084EB",
   },
   status: {
     success: "#4ade80",
@@ -188,7 +190,7 @@ export const DarkColors: ColorPalette = {
     error: "#f87171",
     errorBg: "#1f0a0a",
     errorBorder: "#7f1d1d",
-    info: "#60a5fa",
+    info: "#38bdf8",
     infoBg: "#0a1628",
   },
   overlay: {
@@ -197,12 +199,12 @@ export const DarkColors: ColorPalette = {
     medium: "rgba(255,255,255,0.1)",
   },
   tab: {
-    active: "#a78bfa",
-    inactive: "#636366",
-    background: "#0a0a0a",
-    border: "#2c2c2e",
-    itemactive: "#a78bfa",
-    iteminactive: "#636366",
+    active: "#B084EB",
+    inactive: "#9CA3AF",
+    background: "#121212",
+    border: "#374151",
+    itemactive: "#B084EB",
+    iteminactive: "#9CA3AF",
   },
   transparent: "transparent",
 };

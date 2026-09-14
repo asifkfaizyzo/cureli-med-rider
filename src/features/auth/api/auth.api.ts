@@ -1,43 +1,57 @@
-//src\features\auth\api\auth.api.ts
 import { api } from '../../../services/api';
 import type {
   CheckPhoneResponse,
   VerifyOtpResponse,
   LoginResponse,
   SetPasswordResponse,
+  ResetPasswordResponse,
   RiderProfile,
 } from '../../../types/auth';
 
+export type OtpPurpose = "login" | "register" | "reset";
+
 export const authApi = {
-  // ── Check if phone exists ───────────────────────────────────
   checkPhone: async (phone: string): Promise<CheckPhoneResponse> => {
     const raw = phone.replace(/^\+?91/, '');
     const { data } = await api.post('/rider/auth/check-phone', { phone: raw });
     return data.data;
   },
 
-  // ── Send OTP ────────────────────────────────────────────────
-  sendOtp: async (phone: string): Promise<{ timeout: number }> => {
+  sendOtp: async (
+    phone: string,
+    purpose: OtpPurpose = "register",
+  ): Promise<{ timeout: number }> => {
     const raw = phone.replace(/^\+?91/, '');
-    const { data } = await api.post('/rider/auth/send-otp', { phone: raw });
+    const { data } = await api.post('/rider/auth/send-otp', {
+      phone: raw,
+      purpose,
+    });
     return data.data;
   },
 
-  // ── Verify OTP ──────────────────────────────────────────────
-  verifyOtp: async (phone: string, otp: string): Promise<VerifyOtpResponse> => {
+  verifyOtp: async (
+    phone: string,
+    otp: string,
+    purpose: OtpPurpose = "register",
+  ): Promise<VerifyOtpResponse> => {
     const raw = phone.replace(/^\+?91/, '');
-    const { data } = await api.post('/rider/auth/verify-otp', { phone: raw, otp });
+    const { data } = await api.post('/rider/auth/verify-otp', {
+      phone: raw,
+      otp,
+      purpose,
+    });
     return data.data;
   },
 
-  // ── Password login ──────────────────────────────────────────
   login: async (phone: string, password: string): Promise<LoginResponse> => {
     const raw = phone.replace(/^\+?91/, '');
-    const { data } = await api.post('/rider/auth/login', { phone: raw, password });
+    const { data } = await api.post('/rider/auth/login', {
+      phone: raw,
+      password,
+    });
     return data.data;
   },
 
-  // ── Set password (new rider) ────────────────────────────────
   setPassword: async (
     tempToken: string,
     password: string,
@@ -49,7 +63,17 @@ export const authApi = {
     return data.data;
   },
 
-  // ── Refresh token ───────────────────────────────────────────
+  resetPassword: async (
+    resetToken: string,
+    password: string,
+  ): Promise<ResetPasswordResponse> => {
+    const { data } = await api.post('/rider/auth/reset-password', {
+      reset_token: resetToken,
+      password,
+    });
+    return data.data;
+  },
+
   refreshToken: async (
     refresh_token: string,
   ): Promise<{ accessToken: string; expiresIn: number }> => {
@@ -57,12 +81,10 @@ export const authApi = {
     return data.data;
   },
 
-  // ── Logout ──────────────────────────────────────────────────
   logout: async (): Promise<void> => {
     await api.post('/rider/auth/logout');
   },
 
-  // ── Get profile ─────────────────────────────────────────────
   getMe: async (): Promise<RiderProfile> => {
     const { data } = await api.get('/rider/auth/me');
     return data.data;

@@ -1,7 +1,8 @@
 // cureli-rider-app/app/(app)/(tabs)/home.tsx
 
-import { useRouter } from "expo-router";
+import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useRouter } from "expo-router";
 import { useTheme } from "../../../src/theme/ThemeContext";
 import { FontFamily } from "../../../src/theme/typography";
 
@@ -10,40 +11,21 @@ export default function HomeScreen() {
   const router = useRouter();
 
   return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: colors?.background?.page ?? "#0a0a0a" },
-      ]}
-    >
-      <Text
-        style={[
-          styles.text,
-          { color: colors?.text?.primary ?? "#FFFFFF" },
-        ]}
-      >
-        Home
+    <View style={[styles.container, { backgroundColor: colors.background.page }]}>
+      <Text style={[styles.text, { color: colors.text.primary }]}>Home</Text>
+      <Text style={[styles.subtext, { color: colors.text.muted }]}>
+        Ready to receive delivery tasks
       </Text>
 
-      {/* Test Button for Welcome Screen */}
       <TouchableOpacity
         style={[
           styles.testButton,
-          {
-            backgroundColor: isDark
-              ? colors?.brand?.accent ?? "#059669"
-              : colors?.brand?.primary ?? "#10B981",
-          },
+          { backgroundColor: isDark ? colors.brand.accent : colors.brand.primary },
         ]}
         onPress={() => router.push("/(onboarding)/welcome")}
         activeOpacity={0.8}
       >
-        <Text
-          style={[
-            styles.buttonText,
-            { color: colors?.text?.inverse ?? "#FFFFFF" },
-          ]}
-        >
+        <Text style={[styles.buttonText, { color: colors.text.inverse }]}>
           Preview Welcome Screen
         </Text>
       </TouchableOpacity>
@@ -57,11 +39,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
-    gap: 20,
+    gap: 12,
   },
   text: {
-    fontSize: 24,
+    fontSize: 26,
     fontFamily: FontFamily.bold,
+  },
+  subtext: {
+    fontSize: 14,
+    fontFamily: FontFamily.regular,
+    textAlign: "center",
+    marginBottom: 16,
   },
   testButton: {
     paddingHorizontal: 20,
@@ -71,9 +59,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
   },
   buttonText: {
     fontSize: 15,

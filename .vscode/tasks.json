@@ -5,6 +5,7 @@
       "label": "start-rider-app",
       "dependsOn": [
         "Cureli rider app Tree",
+        "Rider Metro Bundler",
         "Git"
       ],
       "dependsOrder": "parallel"
@@ -12,7 +13,7 @@
     {
       "label": "Rider Metro Bundler",
       "type": "shell",
-      "command": "npx expo start --dev-client",
+      "command": "adb reverse tcp:8081 tcp:8081; adb reverse tcp:5000 tcp:5000; npx expo prebuild --platform android --clean; npx expo run:android",
       "options": {
         "cwd": "${workspaceFolder}"
       },

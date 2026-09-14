@@ -1,40 +1,53 @@
-import { useState } from "react";
+// app/intro.tsx
+import { useRouter } from "expo-router";
+import { useRef, useState } from "react";
 import {
-  View,
+  Dimensions,
+  FlatList,
+  Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  StyleSheet,
+  View,
+  ViewToken,
 } from "react-native";
-import { useRouter } from "expo-router";
-import { useTheme } from "../src/theme/ThemeContext";
 import { introStorage } from "../src/lib/mmkvStorage";
+import { useTheme } from "../src/theme/ThemeContext";
 import { FontFamily } from "../src/theme/typography";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const SLIDES = [
   {
-    title: "Deliver Medicines,\nEarn Daily",
-    subtitle:
-      "Join Cureli's delivery fleet and start earning from day one. Flexible hours, instant payouts.",
-    emoji: "💊",
+    id: "1",
+    title: "Medicine delivery is now easier",
+    subtitle: "Now, managing goods delivery has become simpler than ever.",
+    image: require("../assets/images/onboarding_1.png"),
   },
   {
-    title: "Your Schedule,\nYour Rules",
-    subtitle:
-      "Go online when you want. Accept orders near you. No forced shifts, no penalties.",
-    emoji: "🏍️",
+    id: "2",
+    title: "Package tracking is safer",
+    subtitle: "Tracking your package ensures a safer delivery experience.",
+    image: require("../assets/images/onboarding_2.png"),
   },
   {
-    title: "Grow With\nCureli",
-    subtitle:
-      "Earn bonuses, incentives, and ratings that unlock higher payouts over time.",
-    emoji: "📈",
+    id: "3",
+    title: "Minutes Away. At Your Door.",
+    subtitle: "Quick, reliable delivery whenever you need it.",
+    image: require("../assets/images/onboarding_3.png"),
   },
 ];
 
 export default function IntroScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const [current, setCurrent] = useState(0);
+  const listRef = useRef<FlatList<(typeof SLIDES)[number]>>(null);
 
   const isLast = current === SLIDES.length - 1;
 
@@ -43,132 +56,332 @@ export default function IntroScreen() {
     router.replace("/(auth)/login");
   }
 
+  function handleRegister() {
+    introStorage.markSeen();
+    router.replace("/(auth)/phone");
+  }
+
+  function goToSlide(index: number) {
+    if (index < 0 || index >= SLIDES.length) return;
+    listRef.current?.scrollToIndex({ index, animated: true });
+    setCurrent(index);
+  }
+
   function next() {
     if (isLast) {
       finish();
-    } else {
-      setCurrent((c) => c + 1);
+      return;
+    }
+    goToSlide(current + 1);
+  }
+
+  function onMomentumScrollEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    if (index >= 0 && index < SLIDES.length) {
+      setCurrent(index);
     }
   }
 
-  const slide = SLIDES[current];
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (viewableItems.length > 0 && viewableItems[0].index != null) {
+        setCurrent(viewableItems[0].index);
+      }
+    },
+  ).current;
+
+  const viewabilityConfig = useRef({
+    viewAreaCoveragePercentThreshold: 50,
+  }).current;
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background.page }]}>
-      {/* Skip */}
-      <TouchableOpacity
-        style={styles.skipBtn}
-        onPress={finish}
-        activeOpacity={0.7}
-      >
-        <Text style={[styles.skipText, { color: colors.text.muted }]}>
-          Skip
-        </Text>
-      </TouchableOpacity>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.background.page }]}
+    >
+      <View style={styles.container}>
+        {/* Header: Logo and Skip */}
+        <View style={styles.header}>
+          <View style={styles.brandRow}>
+            <Image
+              source={require("../assets/images/cureli_rider_logo.png")}
+              style={styles.logo}
+            />
+            <View style={styles.brandTextCol}>
+              <Text style={[styles.brandName, { color: colors.text.logo }]}>
+                Cureli
+              </Text>
+              <Text
+                style={[styles.brandSubtitle, { color: colors.text.muted }]}
+              >
+                Delivery Partner
+              </Text>
+            </View>
+          </View>
 
-      {/* Content */}
-      <View style={styles.content}>
-        <Text style={styles.emoji}>{slide.emoji}</Text>
-        <Text style={[styles.title, { color: colors.text.primary }]}>
-          {slide.title}
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.text.muted }]}>
-          {slide.subtitle}
-        </Text>
-      </View>
+          <TouchableOpacity
+            onPress={finish}
+            activeOpacity={0.7}
+            style={styles.skipBtn}
+          >
+            <Text style={[styles.skipText, { color: colors.text.primary }]}>
+              Skip
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Dots */}
-      <View style={styles.dots}>
-        {SLIDES.map((_, i) => (
-          <View
-            key={i}
+        {/* Swipeable Slides */}
+        <FlatList
+          ref={listRef}
+          data={SLIDES}
+          keyExtractor={(item) => item.id}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          decelerationRate="fast"
+          onMomentumScrollEnd={onMomentumScrollEnd}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          getItemLayout={(_, index) => ({
+            length: SCREEN_WIDTH,
+            offset: SCREEN_WIDTH * index,
+            index,
+          })}
+          style={styles.list}
+          renderItem={({ item }) => (
+            <View style={styles.slide}>
+              <View style={styles.imageContainer}>
+                <Image
+                  source={item.image}
+                  style={[
+                    styles.illustration,
+                    { backgroundColor: isDark ? "#2C2C2E" : "#D9D9D9" },
+                  ]}
+                />
+              </View>
+
+              <View style={styles.textContent}>
+                <Text style={[styles.title, { color: colors.text.primary }]}>
+                  {item.title}
+                </Text>
+                <Text style={[styles.subtitle, { color: colors.text.muted }]}>
+                  {item.subtitle}
+                </Text>
+              </View>
+            </View>
+          )}
+        />
+
+        {/* Dots (tappable) */}
+        <View style={styles.dotsContainer}>
+          {SLIDES.map((slide, i) => (
+            <TouchableOpacity
+              key={slide.id}
+              onPress={() => goToSlide(i)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <View
+                style={[
+                  styles.dot,
+                  {
+                    backgroundColor:
+                      i === current
+                        ? colors.brand.primary
+                        : colors.border.default,
+                    width: i === current ? 16 : 6,
+                  },
+                ]}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Footer Actions */}
+        <View style={styles.footer}>
+          <TouchableOpacity
             style={[
-              styles.dot,
-              {
-                backgroundColor:
-                  i === current ? colors.brand.accent : colors.border.default,
-                width: i === current ? 24 : 8,
-              },
+              styles.primaryBtn,
+              { backgroundColor: colors.brand.primary },
             ]}
-          />
-        ))}
-      </View>
+            onPress={next}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.primaryBtnText}>Continue</Text>
+          </TouchableOpacity>
 
-      {/* Button */}
-      <TouchableOpacity
-        style={[
-          styles.button,
-          { backgroundColor: colors.brand.primary },
-        ]}
-        onPress={next}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.buttonText}>
-          {isLast ? "Get Started" : "Next"}
-        </Text>
-      </TouchableOpacity>
-    </View>
+          <TouchableOpacity
+            style={[
+              styles.secondaryBtn,
+              { borderColor: colors.border.default },
+            ]}
+            onPress={handleRegister}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[styles.secondaryBtnText, { color: colors.text.primary }]}
+            >
+              I'm new, sign me up
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={[styles.disclaimerText, { color: colors.text.muted }]}>
+            By Login or Register, you agree to our{" "}
+            <Text
+              style={[styles.linkText, { color: colors.text.brand }]}
+              onPress={() => router.push("/terms")}
+            >
+              Terms of service
+            </Text>{" "}
+            and{" "}
+            <Text
+              style={[styles.linkText, { color: colors.text.brand }]}
+              onPress={() => router.push("/privacy")}
+            >
+              Privacy and policy
+            </Text>
+          </Text>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
+  safeArea: {
     flex: 1,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+  },
+  container: {
+    flex: 1,
+    justifyContent: "space-between",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 20,
+    marginBottom: 12,
     paddingHorizontal: 24,
   },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  logo: {
+    width: 55,
+    height: 55,
+    resizeMode: "contain",
+  },
+  brandTextCol: {
+    flexDirection: "column",
+    justifyContent: "center",
+  },
+  brandName: {
+    fontSize: 30,
+    fontFamily: FontFamily.amulyaBold,
+    lineHeight: 24,
+    letterSpacing: 0,
+  },
+  brandSubtitle: {
+    fontSize: 8,
+    fontFamily: FontFamily.medium,
+    lineHeight: 14,
+    letterSpacing: 0.5,
+    paddingLeft: 4,
+  },
   skipBtn: {
-    alignSelf: "flex-end",
-    marginTop: 60,
     padding: 8,
   },
   skipText: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: FontFamily.medium,
   },
-  content: {
-    flex: 1,
+  list: {
+    flexGrow: 0,
+  },
+  slide: {
+    width: SCREEN_WIDTH,
+    paddingHorizontal: 24,
+  },
+  imageContainer: {
     justifyContent: "center",
     alignItems: "center",
-    gap: 16,
+    width: "100%",
+    marginBottom: 8,
   },
-  emoji: {
-    fontSize: 80,
+  illustration: {
+    width: 350,
+    height: 350,
+    borderRadius: 8,
+    resizeMode: "contain",
+  },
+  textContent: {
+    alignItems: "center",
     marginBottom: 8,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontFamily: FontFamily.bold,
     textAlign: "center",
-    lineHeight: 36,
-    letterSpacing: -0.5,
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: FontFamily.regular,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 20,
     paddingHorizontal: 16,
   },
-  dots: {
+  dotsContainer: {
     flexDirection: "row",
     justifyContent: "center",
+    alignItems: "center",
     gap: 8,
-    marginBottom: 24,
+    marginTop: 8,
+    marginBottom: 20,
   },
   dot: {
-    height: 8,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
   },
-  button: {
-    height: 54,
-    borderRadius: 14,
+  footer: {
+    paddingHorizontal: 24,
+    paddingBottom: 32,
+  },
+  primaryBtn: {
+    height: 52,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 40,
+    marginBottom: 12,
   },
-  buttonText: {
+  primaryBtnText: {
     color: "#fff",
-    fontSize: 17,
-    fontFamily: FontFamily.bold,
+    fontSize: 16,
+    fontFamily: FontFamily.medium,
+  },
+  secondaryBtn: {
+    height: 52,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  secondaryBtnText: {
+    fontSize: 16,
+    fontFamily: FontFamily.medium,
+  },
+  disclaimerText: {
+    fontSize: 12,
+    textAlign: "center",
+    fontFamily: FontFamily.regular,
+    lineHeight: 18,
+    paddingHorizontal: 10,
+  },
+  linkText: {
+    fontFamily: FontFamily.medium,
   },
 });
