@@ -1,3 +1,4 @@
+// src/services/locationService.ts (do not remove this comment)
 // src/services/locationService.ts
 
 import * as Location from "expo-location";

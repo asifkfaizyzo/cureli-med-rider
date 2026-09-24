@@ -1,3 +1,4 @@
+// app/(auth)/set-password.tsx (do not remove this comment)
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";

@@ -1,3 +1,4 @@
+// src/constants/config.ts (do not remove this comment)
 //cureli-rider-app\src\constants\config.ts
 // ── Local development ───────────────────────────────────────
 // const DEV_BASE_URL = "http://192.168.29.47:5000";

@@ -1,3 +1,4 @@
+// app/(onboarding)/vehicle-details.tsx (do not remove this comment)
 //Q:\YourZeroesAndOnes\cureli\cureli-med-rider\app\(onboarding)\vehicle-details.tsx
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";

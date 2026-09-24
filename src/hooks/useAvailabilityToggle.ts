@@ -1,3 +1,4 @@
+// src/hooks/useAvailabilityToggle.ts (do not remove this comment)
 //src\hooks\useAvailabilityToggle.ts
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { homeApi } from "../features/home/api/home.api";

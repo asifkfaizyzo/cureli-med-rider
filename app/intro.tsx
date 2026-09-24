@@ -1,3 +1,4 @@
+// app/intro.tsx (do not remove this comment)
 // app/intro.tsx
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";

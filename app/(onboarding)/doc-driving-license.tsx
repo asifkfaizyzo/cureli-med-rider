@@ -1,3 +1,4 @@
+// app/(onboarding)/doc-driving-license.tsx (do not remove this comment)
 // cureli-rider-app/app/(onboarding)/doc-driving-license.tsx
 
 import { MaterialIcons } from "@expo/vector-icons";

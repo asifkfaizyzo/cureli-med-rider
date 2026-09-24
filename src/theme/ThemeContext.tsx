@@ -1,3 +1,4 @@
+// src/theme/ThemeContext.tsx (do not remove this comment)
 //cureli-rider-app\src\theme\ThemeContext.tsx
 import React, {
   createContext,

@@ -1,3 +1,4 @@
+// app/(app)/(tabs)/index.tsx (do not remove this comment)
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView, StyleSheet, View } from "react-native";
 import BottomSheet from "@gorhom/bottom-sheet";

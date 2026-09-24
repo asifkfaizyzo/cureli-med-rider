@@ -1,3 +1,4 @@
+// src/components/home/ShopMarker.tsx (do not remove this comment)
 import { StyleSheet, Text, View } from "react-native";
 import { Marker } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";

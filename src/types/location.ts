@@ -1,3 +1,4 @@
+// src/types/location.ts (do not remove this comment)
 export interface LocationCoordinates {
   lat: number;
   lng: number;

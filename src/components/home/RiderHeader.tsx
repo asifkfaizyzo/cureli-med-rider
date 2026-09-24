@@ -1,3 +1,4 @@
+// src/components/home/RiderHeader.tsx (do not remove this comment)
 import React, { useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import {

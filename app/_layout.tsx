@@ -1,3 +1,4 @@
+// app/_layout.tsx (do not remove this comment)
 import {
   Inter_400Regular,
   Inter_500Medium,

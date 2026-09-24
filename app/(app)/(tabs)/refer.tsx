@@ -1,3 +1,4 @@
+// app/(app)/(tabs)/refer.tsx (do not remove this comment)
 // cureli-rider-app/app/(app)/(tabs)/refer.tsx
 
 import React from "react";

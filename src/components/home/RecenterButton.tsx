@@ -1,3 +1,4 @@
+// src/components/home/RecenterButton.tsx (do not remove this comment)
 import { StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";

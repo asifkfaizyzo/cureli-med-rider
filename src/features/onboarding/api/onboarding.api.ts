@@ -1,3 +1,4 @@
+// src/features/onboarding/api/onboarding.api.ts (do not remove this comment)
 // cureli-rider-app/src/features/onboarding/api/onboarding.api.ts
 
 import { api } from "../../../services/api";

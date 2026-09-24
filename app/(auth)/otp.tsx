@@ -1,3 +1,4 @@
+// app/(auth)/otp.tsx (do not remove this comment)
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";

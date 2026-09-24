@@ -1,3 +1,4 @@
+// src/components/home/StatCardRow.tsx (do not remove this comment)
 import { StyleSheet, View } from "react-native";
 import { StatCard } from "./StatCard";
 import { Ionicons } from "@expo/vector-icons";

@@ -1,3 +1,4 @@
+// app/(app)/_layout.tsx (do not remove this comment)
 //app\(app)\_layout.tsx
 import { Stack } from "expo-router";
 import { useLocationTracking } from "../../src/hooks/useLocationTracking";

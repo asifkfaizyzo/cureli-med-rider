@@ -1,3 +1,4 @@
+// src/theme/typography.ts (do not remove this comment)
 //cureli-rider-app\src\theme\typography.ts
 export const FontFamily = {
   regular:     'Inter_400Regular',

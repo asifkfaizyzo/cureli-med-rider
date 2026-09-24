@@ -1,3 +1,4 @@
+// app/(app)/(tabs)/_layout.tsx (do not remove this comment)
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React, { useState, useMemo } from "react";

@@ -1,3 +1,4 @@
+// src/components/home/HomeBottomSheet.tsx (do not remove this comment)
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import React, { useCallback, useMemo } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";

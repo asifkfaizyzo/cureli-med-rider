@@ -1,3 +1,4 @@
+// src/hooks/useLocationTracking.ts (do not remove this comment)
 import { useEffect, useRef } from "react";
 import { AppState } from "react-native";
 import { useRiderOperationalStore } from "../store/riderOperationalStore";

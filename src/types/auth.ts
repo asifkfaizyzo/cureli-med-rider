@@ -1,3 +1,4 @@
+// src/types/auth.ts (do not remove this comment)
 export type RiderType = "INDEPENDENT" | "TEAM";
 
 export type RiderStatus =

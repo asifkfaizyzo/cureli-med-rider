@@ -1,3 +1,4 @@
+// src/services/sseManager.ts (do not remove this comment)
 import EventSource from "react-native-sse";
 import { CONFIG } from "../constants/config";
 import { useAuthStore } from "../store/authStore";

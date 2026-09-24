@@ -1,3 +1,4 @@
+// src/features/auth/utils/authNavigation.ts (do not remove this comment)
 import type { Href } from "expo-router";
 import type { RiderProfile, OnboardingStep } from "../../../types/auth";
 

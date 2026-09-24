@@ -1,3 +1,4 @@
+// app/terms.tsx (do not remove this comment)
 import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { useTheme } from "../src/theme/ThemeContext";
 import { FontFamily } from "../src/theme/typography";

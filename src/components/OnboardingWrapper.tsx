@@ -1,3 +1,4 @@
+// src/components/OnboardingWrapper.tsx (do not remove this comment)
 // src/components/OnboardingWrapper.tsx
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";

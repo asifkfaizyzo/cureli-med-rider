@@ -1,3 +1,4 @@
+// src/hooks/useNearbyShops.ts (do not remove this comment)
 import { useQuery } from "@tanstack/react-query";
 import { homeApi } from "../features/home/api/home.api";
 import { useRiderOperationalStore } from "../store/riderOperationalStore";

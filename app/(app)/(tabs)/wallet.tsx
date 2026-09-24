@@ -1,3 +1,4 @@
+// app/(app)/(tabs)/wallet.tsx (do not remove this comment)
 // cureli-rider-app/app/(app)/(tabs)/wallet.tsx
 
 import React from "react";

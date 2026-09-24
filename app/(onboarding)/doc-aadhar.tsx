@@ -1,3 +1,4 @@
+// app/(onboarding)/doc-aadhar.tsx (do not remove this comment)
 // cureli-rider-app/app/(onboarding)/doc-aadhar.tsx
 
 import { MaterialIcons } from "@expo/vector-icons";

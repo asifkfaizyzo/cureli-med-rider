@@ -1,3 +1,4 @@
+// app/splash.tsx (do not remove this comment)
 import { useEffect, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet, Image, Text } from "react-native";
 import { useRouter } from "expo-router";

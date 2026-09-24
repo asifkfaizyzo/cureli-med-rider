@@ -1,3 +1,4 @@
+// src/lib/documentCache.ts (do not remove this comment)
 // src/lib/documentCache.ts
 
 import { MMKV } from "react-native-mmkv";

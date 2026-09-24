@@ -1,3 +1,4 @@
+// app/(onboarding)/terms.tsx (do not remove this comment)
 // cureli-rider-app/app/(onboarding)/terms.tsx
 
 import { MaterialIcons } from "@expo/vector-icons";

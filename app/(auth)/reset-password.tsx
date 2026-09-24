@@ -1,3 +1,4 @@
+// app/(auth)/reset-password.tsx (do not remove this comment)
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";

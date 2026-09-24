@@ -1,3 +1,4 @@
+// src/features/auth/components/AuthComponents.tsx (do not remove this comment)
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";

@@ -1,3 +1,4 @@
+// src/features/auth/components/AuthInputs.tsx (do not remove this comment)
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { forwardRef, useState } from "react";

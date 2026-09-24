@@ -1,3 +1,4 @@
+// src/components/home/RiderMarker.tsx (do not remove this comment)
 import { useEffect, useRef, useState, RefObject } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 import { Marker, Circle } from "react-native-maps";

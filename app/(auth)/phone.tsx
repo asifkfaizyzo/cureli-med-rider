@@ -1,3 +1,4 @@
+// app/(auth)/phone.tsx (do not remove this comment)
 // app/(auth)/phone.tsx — Variation 1: Clean Centered
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";

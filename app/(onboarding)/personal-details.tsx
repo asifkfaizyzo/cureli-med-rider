@@ -1,3 +1,4 @@
+// app/(onboarding)/personal-details.tsx (do not remove this comment)
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";

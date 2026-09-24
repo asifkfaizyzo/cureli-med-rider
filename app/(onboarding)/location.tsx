@@ -1,3 +1,4 @@
+// app/(onboarding)/location.tsx (do not remove this comment)
 //app\(onboarding)\location.tsx
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";

@@ -1,3 +1,4 @@
+// src/hooks/useSSEConnection.ts (do not remove this comment)
 import { useEffect } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { useAuthStore } from "../store/authStore";

@@ -1,3 +1,4 @@
+// src/constants/mapStyle.ts (do not remove this comment)
 // Minimal Google Maps style — hides unnecessary POIs, keeps roads/parks/water
 // Supports both light and dark modes
 

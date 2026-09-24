@@ -1,3 +1,4 @@
+// src/services/storage.ts (do not remove this comment)
 //src\services\storage.ts
 import { themeStorage, appStorage } from "../lib/mmkvStorage";
 

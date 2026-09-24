@@ -1,3 +1,4 @@
+// src/components/home/OnlineMapView.tsx (do not remove this comment)
 import { useCallback, useRef, useState } from "react";
 import { StyleSheet, View, Alert } from "react-native";
 import MapView, { Region, PROVIDER_GOOGLE, MapPressEvent } from "react-native-maps";

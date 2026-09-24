@@ -1,3 +1,4 @@
+// src/components/home/ActiveIncentiveCard.tsx (do not remove this comment)
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";

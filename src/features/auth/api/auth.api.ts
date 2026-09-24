@@ -1,3 +1,4 @@
+// src/features/auth/api/auth.api.ts (do not remove this comment)
 import { api } from '../../../services/api';
 import type {
   CheckPhoneResponse,

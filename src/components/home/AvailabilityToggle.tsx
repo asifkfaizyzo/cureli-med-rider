@@ -1,3 +1,4 @@
+// src/components/home/AvailabilityToggle.tsx (do not remove this comment)
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import {

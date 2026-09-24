@@ -1,3 +1,4 @@
+// app/(onboarding)/welcome.tsx (do not remove this comment)
 // cureli-rider-app/app/(onboarding)/welcome.tsx
 
 import React, { useEffect } from "react";

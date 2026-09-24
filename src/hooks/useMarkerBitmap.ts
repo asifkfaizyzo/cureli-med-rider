@@ -1,3 +1,4 @@
+// src/hooks/useMarkerBitmap.ts (do not remove this comment)
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { captureRef } from "react-native-view-shot";

@@ -1,3 +1,4 @@
+// app/(onboarding)/_layout.tsx (do not remove this comment)
 //app\(onboarding)\_layout.tsx
 import { Stack } from "expo-router";
 

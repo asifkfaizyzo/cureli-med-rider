@@ -1,3 +1,4 @@
+// src/components/home/OfflineDashboard.tsx (do not remove this comment)
 import { StyleSheet, ScrollView, RefreshControl, View, Text } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
 import { FontFamily } from "../../theme/typography";
