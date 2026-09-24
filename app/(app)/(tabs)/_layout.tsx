@@ -1,8 +1,6 @@
-// cureli-rider-app/app/(app)/(tabs)/_layout.tsx
-
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useState, useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   Extrapolation,
@@ -15,33 +13,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTheme } from "../../../src/theme/ThemeContext";
 import { FontFamily } from "../../../src/theme/typography";
+import { useAuthStore } from "../../../src/store/authStore";
 
 const BAR_WIDTH = 360;
 const PADDING = 10;
-const SLOT_WIDTH = (BAR_WIDTH - PADDING * 2) / 4; // 78px per slot
-
-// Center points for each of the 4 tabs
-const CENTERS = [
-  PADDING + SLOT_WIDTH * 0.5,
-  PADDING + SLOT_WIDTH * 1.5,
-  PADDING + SLOT_WIDTH * 2.5,
-  PADDING + SLOT_WIDTH * 3.5,
-];
-
-const PILL_WIDTHS = [92, 102, 96, 92];
-
-interface TabItem {
-  name: string;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}
-
-const TABS: TabItem[] = [
-  { name: "home", label: "Home", icon: "home-outline" },
-  { name: "wallet", label: "Wallet", icon: "wallet-outline" },
-  { name: "refer", label: "Refer", icon: "people-outline" },
-  { name: "more", label: "More", icon: "grid-outline" },
-];
 
 const SPRING_CONFIG = {
   damping: 20,
@@ -49,68 +24,92 @@ const SPRING_CONFIG = {
   mass: 0.5,
 };
 
-function CustomTabBar({ state, navigation }: any) {
+interface TabItem {
+  name: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}
+
+const ALL_TABS: Record<string, TabItem> = {
+  index: { name: "index", label: "Home", icon: "home-outline" },
+  wallet: { name: "wallet", label: "Wallet", icon: "wallet-outline" },
+  refer: { name: "refer", label: "Refer", icon: "people-outline" },
+  more: { name: "more", label: "More", icon: "grid-outline" },
+};
+
+const PILL_WIDTHS_MAP: Record<string, number> = {
+  index: 92,
+  wallet: 102,
+  refer: 96,
+  more: 92,
+};
+
+function CustomTabBar({ state, navigation, activeTabs }: any) {
   const { colors, isDark } = useTheme();
-  const activeIndex = state.index;
 
-  const [displayIndex, setDisplayIndex] = useState(activeIndex);
+  // ── Index Mapping Layer (Fixes Reanimated crash) ──────────
+  // Get current active route name from the raw navigation state
+  const currentRouteName = state.routes[state.index].name;
 
-  // Shared animation values
-  const animIndex = useSharedValue(activeIndex);
+  // Map route index to the filtered subset array (always 0 to activeTabs.length - 1)
+  const safeActiveIndex = useMemo(() => {
+    const idx = activeTabs.findIndex((t: TabItem) => t.name === currentRouteName);
+    return idx !== -1 ? idx : 0;
+  }, [activeTabs, currentRouteName]);
+
+  const [displayIndex, setDisplayIndex] = useState(safeActiveIndex);
+
+  // Dynamic layout metrics based on current active count
+  const tabCount = activeTabs.length;
+  const slotWidth = (BAR_WIDTH - PADDING * 2) / tabCount;
+
+  const centers = useMemo(() => {
+    return activeTabs.map((_: any, idx: number) => PADDING + slotWidth * (idx + 0.5));
+  }, [activeTabs, slotWidth]);
+
+  const pillWidths = useMemo(() => {
+    return activeTabs.map((tab: TabItem) => PILL_WIDTHS_MAP[tab.name] ?? 92);
+  }, [activeTabs]);
+
+  // Reanimated Shared Values
+  const animIndex = useSharedValue(safeActiveIndex);
   const pillLeft = useSharedValue(
-    CENTERS[activeIndex] - PILL_WIDTHS[activeIndex] / 2,
+    centers[safeActiveIndex] - pillWidths[safeActiveIndex] / 2,
   );
-  const pillWidth = useSharedValue(PILL_WIDTHS[activeIndex]);
+  const pillWidth = useSharedValue(pillWidths[safeActiveIndex]);
   const labelOpacity = useSharedValue(1);
 
   const updateDisplayIndex = (idx: number) => {
     setDisplayIndex(idx);
   };
 
-  useEffect(() => {
-    // Animate active slot tracker
-    animIndex.value = withSpring(activeIndex, SPRING_CONFIG);
+  React.useEffect(() => {
+    animIndex.value = withSpring(safeActiveIndex, SPRING_CONFIG);
 
-    // Slide pill position smoothly
-    const targetLeft = CENTERS[activeIndex] - PILL_WIDTHS[activeIndex] / 2;
+    const targetLeft = centers[safeActiveIndex] - pillWidths[safeActiveIndex] / 2;
     pillLeft.value = withSpring(targetLeft, SPRING_CONFIG);
+    pillWidth.value = withSpring(pillWidths[safeActiveIndex], SPRING_CONFIG);
 
-    // Expand / contract width
-    pillWidth.value = withSpring(PILL_WIDTHS[activeIndex], SPRING_CONFIG);
-
-    // Fade active label safely on UI thread & sync to JS thread
     labelOpacity.value = withTiming(0, { duration: 90 }, (finished) => {
       if (finished) {
-        runOnJS(updateDisplayIndex)(activeIndex);
+        runOnJS(updateDisplayIndex)(safeActiveIndex);
         labelOpacity.value = withTiming(1, { duration: 130 });
       }
     });
-  }, [activeIndex]);
+  }, [safeActiveIndex, centers, pillWidths]);
 
   const handleTabPress = (index: number, name: string) => {
-    if (activeIndex === index) return;
     navigation.navigate(name);
   };
 
-  // ── Adaptive Light/Dark Mode Mapping ────────────────────────────
-  
-  // 1. Bar Background: Light Purple in Light mode, Deep Midnight Purple in Dark mode
   const containerBg = isDark ? colors.background.accent : colors.brand.light;
-  
-  // 2. Bar Border: Soft purple in Light mode, Strong Dark Purple in Dark mode
   const containerBorder = colors.border.brand;
-
-  // 3. Inactive Circles: Mid-Purple in Light mode, Dark violet tint in Dark mode
   const inactiveIconBg = isDark ? colors.background.tint : colors.brand.mid;
-
-  // 4. Inactive Icons: Clean white in Light mode, Light-Purple accent in Dark mode
   const inactiveIconColor = isDark ? colors.brand.light : colors.text.inverse;
-  
-  // 5. Traveling Active Pill: Deep Purple in Light mode, Vibrant Lilac in Dark mode
   const activeBg = isDark ? colors.brand.accent : colors.brand.primary;
-
-  // 6. Active Text/Icon: Clean white in Light mode, Pure black (contrast) in Dark mode
-  const activeTextIconColor = isDark ? colors.text.inverse : colors.brand.primaryText;
+  const activeTextIconColor = isDark
+    ? colors.text.inverse
+    : colors.brand.primaryText;
 
   const pillAnimatedStyle = useAnimatedStyle(() => ({
     left: pillLeft.value,
@@ -119,9 +118,7 @@ function CustomTabBar({ state, navigation }: any) {
 
   const labelAnimatedStyle = useAnimatedStyle(() => ({
     opacity: labelOpacity.value,
-    transform: [
-      { translateX: interpolate(labelOpacity.value, [0, 1], [-4, 0]) },
-    ],
+    transform: [{ translateX: interpolate(labelOpacity.value, [0, 1], [-4, 0]) }],
   }));
 
   return (
@@ -135,8 +132,7 @@ function CustomTabBar({ state, navigation }: any) {
           },
         ]}
       >
-        {/* INACTIVE ICONS */}
-        {TABS.map((tab, idx) => {
+        {activeTabs.map((tab: TabItem, idx: number) => {
           const inactiveStyle = useAnimatedStyle(() => {
             const opacity = interpolate(
               animIndex.value,
@@ -153,23 +149,18 @@ function CustomTabBar({ state, navigation }: any) {
               style={[
                 styles.inactiveIconBg,
                 {
-                  left: CENTERS[idx] - 20,
+                  left: centers[idx] - 20,
                   backgroundColor: inactiveIconBg,
                 },
                 inactiveStyle,
               ]}
               pointerEvents="none"
             >
-              <Ionicons
-                name={tab.icon}
-                size={20}
-                color={inactiveIconColor}
-              />
+              <Ionicons name={tab.icon} size={20} color={inactiveIconColor} />
             </Animated.View>
           );
         })}
 
-        {/* SINGLE TRAVELING ACTIVE PILL */}
         <Animated.View
           style={[
             styles.activePill,
@@ -180,25 +171,24 @@ function CustomTabBar({ state, navigation }: any) {
         >
           <Animated.View style={[styles.pillContent, labelAnimatedStyle]}>
             <Ionicons
-              name={TABS[displayIndex]?.icon ?? "home-outline"}
+              name={activeTabs[displayIndex]?.icon ?? "home-outline"}
               size={20}
               color={activeTextIconColor}
             />
             <Text style={[styles.pillText, { color: activeTextIconColor }]}>
-              {TABS[displayIndex]?.label ?? "Home"}
+              {activeTabs[displayIndex]?.label ?? "Home"}
             </Text>
           </Animated.View>
         </Animated.View>
 
-        {/* TRANSPARENT TAP TARGETS */}
-        {TABS.map((tab, idx) => (
+        {activeTabs.map((tab: TabItem, idx: number) => (
           <TouchableOpacity
             key={`target-${tab.name}`}
             style={[
               styles.tapTarget,
               {
-                left: PADDING + idx * SLOT_WIDTH,
-                width: SLOT_WIDTH,
+                left: PADDING + idx * slotWidth,
+                width: slotWidth,
               },
             ]}
             onPress={() => handleTabPress(idx, tab.name)}
@@ -211,14 +201,36 @@ function CustomTabBar({ state, navigation }: any) {
 }
 
 export default function TabsLayout() {
+  const riderType = useAuthStore((state) => state.rider?.rider_type) || "INDEPENDENT";
+  const isTeam = riderType === "TEAM";
+
+  const activeTabs = useMemo(() => {
+    if (isTeam) {
+      return [ALL_TABS.index, ALL_TABS.more];
+    }
+    return [ALL_TABS.index, ALL_TABS.wallet, ALL_TABS.refer, ALL_TABS.more];
+  }, [isTeam]);
+
   return (
     <Tabs
-      tabBar={(props) => <CustomTabBar {...props} />}
+      tabBar={(props) => <CustomTabBar {...props} activeTabs={activeTabs} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen name="home" />
-      <Tabs.Screen name="wallet" />
-      <Tabs.Screen name="refer" />
+      <Tabs.Screen name="index" />
+      
+      <Tabs.Screen 
+        name="wallet" 
+        options={{
+          href: isTeam ? null : "/wallet",
+        }}
+      />
+      <Tabs.Screen 
+        name="refer" 
+        options={{
+          href: isTeam ? null : "/refer",
+        }}
+      />
+      
       <Tabs.Screen name="more" />
     </Tabs>
   );

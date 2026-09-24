@@ -120,7 +120,7 @@ export default function LoginScreen() {
         } else if (result.accessToken && result.rider) {
           setAuth(result.rider, result.accessToken, result.refreshToken!);
           const target = getRouteForRider(result.rider);
-          setTimeout(() => router.replace(target as any), 150);
+          setTimeout(() => router.replace(target), 150);
         }
       } catch (err: unknown) {
         setOtp("");
@@ -159,7 +159,7 @@ export default function LoginScreen() {
       const result = await authApi.login(cleanedPhone, password);
       setAuth(result.rider, result.accessToken, result.refreshToken);
       const target = getRouteForRider(result.rider);
-      setTimeout(() => router.replace(target as any), 150);
+      setTimeout(() => router.replace(target), 150);
     } catch (err: unknown) {
       const { message, code } = extractError(err);
       if (code === "NOT_FOUND")

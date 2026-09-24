@@ -1,5 +1,10 @@
 import "dotenv/config";
 
+const GOOGLE_MAPS_KEY =
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ||
+  process.env.GOOGLE_MAPS_API_KEY ||
+  "";
+
 export default {
   expo: {
     owner: "your-zeros-and-ones",
@@ -23,7 +28,7 @@ export default {
           "Cureli Delivery needs your location for navigation and tracking deliveries.",
       },
       config: {
-        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
+        googleMapsApiKey: GOOGLE_MAPS_KEY,
       },
     },
     android: {
@@ -38,16 +43,17 @@ export default {
       versionCode: 1,
       // Uncomment when you download google-services.json for in.cureli.delivery from Firebase:
       // googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
-      permissions: [
+     permissions: [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",      
+        "android.permission.ACCESS_COARSE_LOCATION",    
+        "android.permission.ACCESS_BACKGROUND_LOCATION", 
       ],
       config: {
         googleMaps: {
-          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
+          apiKey: GOOGLE_MAPS_KEY,
         },
       },
     },
@@ -73,8 +79,8 @@ export default {
         {
           locationWhenInUsePermission:
             "Cureli Delivery needs your location for navigation and tracking deliveries.",
-          isIosBackgroundLocationEnabled: false,
-          isAndroidBackgroundLocationEnabled: false,
+          isIosBackgroundLocationEnabled: true,
+          isAndroidBackgroundLocationEnabled: true,
         },
       ],
       [

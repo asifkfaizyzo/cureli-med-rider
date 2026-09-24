@@ -1,5 +1,3 @@
-// app/_layout.tsx
-
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -20,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuthStore } from "../src/store/authStore";
 import { ThemeProvider, useTheme } from "../src/theme/ThemeContext";
 
@@ -27,13 +26,21 @@ SplashScreen.preventAutoHideAsync();
 
 LogBox.ignoreLogs(["SafeAreaView has been deprecated"]);
 
+// Create QueryClient instance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 30_000,
+    },
+  },
+});
+
 // ── Floating Dev Theme Switcher Component ───────────────────────────
 function GlobalThemeToggle() {
-  // Pull values matching your exact ThemeContextValue interface
   const { colors, isDark, setPreference } = useTheme();
 
   const handleToggle = () => {
-    // Toggles between "light" and "dark" using setPreference
     setPreference(isDark ? "light" : "dark");
   };
 
@@ -88,18 +95,22 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="splash" options={{ animation: "fade" }} />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(onboarding)" />
-          <Stack.Screen name="(app)" />
-        </Stack>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="splash" options={{ animation: "fade" }} />
+            <Stack.Screen name="intro" />
+            <Stack.Screen name="terms" />
+            <Stack.Screen name="privacy" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(onboarding)" />
+            <Stack.Screen name="(app)" />
+          </Stack>
 
-        {/* Global theme toggle overlay on top of every page */}
-        <GlobalThemeToggle />
-      </ThemeProvider>
+          <GlobalThemeToggle />
+        </ThemeProvider>
+      </QueryClientProvider>
     </GestureHandlerRootView>
   );
 }
