@@ -1,242 +1,202 @@
-// app/(app)/(tabs)/more.tsx (do not remove this comment)
-// cureli-rider-app/app/(app)/(tabs)/more.tsx
+// cureli-rider-app/app/(app)/(tabs)/more.tsx (do not remove this comment)
 
+import { router } from "expo-router";
 import React from "react";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { RiderHeader } from "../../../src/components/home/RiderHeader";
+import { MoreActionButtons } from "../../../src/components/profile/MoreActionButtons";
 import {
-  StyleSheet,
-  Text,
-  View,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../../../src/theme/ThemeContext";
-import { FontFamily } from "../../../src/theme/typography";
+  MenuItem,
+  MoreMenuSection,
+} from "../../../src/components/profile/MoreMenuSection";
+import { ProfileCard } from "../../../src/components/profile/ProfileCard";
+import { useDialog } from "../../../src/components/Dialog/DialogProvider";
 import { useAuthStore } from "../../../src/store/authStore";
 import { useRiderOperationalStore } from "../../../src/store/riderOperationalStore";
-import { RiderHeader } from "../../../src/components/home/RiderHeader";
+import { useTheme } from "../../../src/theme/ThemeContext";
 
 export default function MoreScreen() {
   const { colors } = useTheme();
-  
-  // Dynamic user data
+  const { alert, confirm } = useDialog();
+
+  // Auth store
   const rider = useAuthStore((state) => state.rider);
   const logout = useAuthStore((state) => state.logout);
+
+  // Operational store (for guards)
   const isOnline = useRiderOperationalStore((state) => state.isOnline);
+  const isToggling = useRiderOperationalStore((state) => state.isToggling);
+  const activeDeliveryId = useRiderOperationalStore(
+    (state) => state.activeDeliveryId,
+  );
 
-  const fullName = rider?.full_name || "Rider Partner";
-  const rawPhone = rider?.phone || "";
-  const displayPhone = rawPhone.startsWith("+91") ? rawPhone : `+91 ${rawPhone}`;
-  
-  // Format avatar initials
-  const initials = fullName
-    .split(" ")
-    .map((name) => name.charAt(0))
-    .join("")
-    .slice(0, 2)
-    .toUpperCase() || "R";
-
-  // Dynamic Metrics
-  const currentRating = rider?.rating ? Number(rider.rating).toFixed(1) : "0.0";
-  const totalTrips = rider?.total_deliveries ?? 0;
-
-  // Custom alert handler for dummy buttons
   const handleMenuPress = (label: string) => {
-    Alert.alert("Feature Coming Soon", `"${label}" setup will be available in the next release.`);
+    Alert.alert(
+      "Feature Coming Soon",
+      `"${label}" setup will be available in the next release.`,
+    );
   };
 
-  const handleLogoutPress = () => {
-    Alert.alert(
-      "Confirm Logout",
-      "Are you sure you want to log out of your session?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Log Out", 
-          style: "destructive", 
-          onPress: async () => {
-            try {
-              await logout();
-            } catch (err) {
-              console.error("[MoreScreen] Logout failed:", err);
-            }
-          } 
-        },
-      ]
-    );
+  const handleLogoutPress = async () => {
+    // ── Guard 1: Availability toggle in progress ────────────
+    if (isToggling) {
+      await alert({
+        title: "Please Wait",
+        message:
+          "Your availability is being updated. Please wait a moment before logging out.",
+        icon: "hourglass-empty",
+      });
+      return;
+    }
+
+    // ── Guard 2: Active delivery in progress ────────────────
+    if (activeDeliveryId) {
+      await alert({
+        title: "Active Delivery",
+        message:
+          "You have a delivery in progress. Please complete or cancel it before logging out.",
+        icon: "local-shipping",
+      });
+      return;
+    }
+
+    // ── Guard 3: Rider is still online ──────────────────────
+    if (isOnline) {
+      await alert({
+        title: "Go Offline First",
+        message:
+          "You are currently online and may receive order requests. Please go offline from the Home tab before logging out.",
+        icon: "warning",
+      });
+      return;
+    }
+
+    // ── All clear: confirm logout ───────────────────────────
+    const confirmed = await confirm({
+      title: "Log Out",
+      message:
+        "Are you sure you want to log out? You will stop receiving order alerts until you log back in.",
+      confirmLabel: "Log Out",
+      cancelLabel: "Cancel",
+      destructive: true,
+      icon: "logout",
+    });
+
+    if (!confirmed) return;
+
+    // Execute logout (authStore.logout handles full cleanup:
+    // stops location tracking, resets operational store, calls backend, clears auth)
+    try {
+      await logout();
+      router.replace("/(auth)/login");
+    } catch (err) {
+      console.error("[MoreScreen] Logout failed:", err);
+      // Force navigate even if API call fails — local state is already cleared
+      router.replace("/(auth)/login");
+    }
   };
 
   const handleDeleteAccountPress = () => {
     Alert.alert(
       "Account Deletion Request",
       "For security and compliance reasons, account deletion requests must be verified. Please contact administrator support at support@cureli.in to process your request.",
-      [{ text: "Okay", style: "default" }]
+      [{ text: "Okay", style: "default" }],
     );
   };
 
+  // Group 1: My Account Menu Data
+  const accountItems: MenuItem[] = [
+    {
+      label: "Personal Information",
+      icon: "person-outline",
+      onPress: () => handleMenuPress("Personal Information"),
+    },
+    {
+      label: "Documents",
+      icon: "document-text-outline",
+      onPress: () => handleMenuPress("Documents"),
+    },
+    {
+      label: "Delivery History",
+      icon: "receipt-outline",
+      onPress: () => handleMenuPress("Delivery History"),
+    },
+    {
+      label: "Notifications",
+      icon: "notifications-outline",
+      onPress: () => handleMenuPress("Notifications"),
+    },
+    {
+      label: "KYC & Bank",
+      icon: "card-outline",
+      onPress: () => handleMenuPress("KYC & Bank"),
+    },
+    {
+      label: "Training",
+      icon: "school-outline",
+      onPress: () => handleMenuPress("Training"),
+    },
+  ];
+
+  // Group 2: Support & Legal Menu Data
+  const supportItems: MenuItem[] = [
+    {
+      label: "Help Center & FAQ",
+      icon: "help-circle-outline",
+      onPress: () => handleMenuPress("Help Center & FAQ"),
+    },
+    {
+      label: "Terms & Conditions",
+      icon: "document-lock-outline",
+      onPress: () => handleMenuPress("Terms & Conditions"),
+    },
+    {
+      label: "Privacy Policy",
+      icon: "shield-checkmark-outline",
+      onPress: () => handleMenuPress("Privacy Policy"),
+    },
+  ];
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background.page }]}>
-      {/* Dynamic Header wired directly to operational store */}
+    <View
+      style={[styles.container, { backgroundColor: colors.background.page }]}
+    >
       <RiderHeader
         collapsed={false}
         onHelpPress={() => handleMenuPress("Help Center")}
-        onSOSPress={() => Alert.alert("SOS Triggered", "Emergency support signal sent to operations desk.")}
+        onSOSPress={() =>
+          Alert.alert(
+            "SOS Triggered",
+            "Emergency support signal sent to operations desk.",
+          )
+        }
         onNotificationsPress={() => handleMenuPress("Notifications")}
         hasUnreadNotifications={false}
       />
 
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Dynamic Profile Summary Card */}
-        <View style={[styles.profileCard, { backgroundColor: colors.background.card, borderColor: colors.border.subtle }]}>
-          <View style={styles.profileHeader}>
-            <View style={[styles.avatar, { backgroundColor: colors.background.tint, borderColor: colors.brand.soft }]}>
-              <Text style={[styles.avatarText, { color: colors.brand.primary }]}>{initials}</Text>
-            </View>
-            <View style={styles.profileDetails}>
-              <Text style={[styles.profileName, { color: colors.text.primary }]}>{fullName}</Text>
-              <Text style={[styles.profilePhone, { color: colors.text.secondary }]}>{displayPhone}</Text>
-            </View>
-          </View>
+        {/* Profile Stats Card with CDN Photo Support */}
+        <ProfileCard
+          fullName={rider?.full_name || "Rider Partner"}
+          phone={rider?.phone || ""}
+          rating={rider?.rating || "0.0"}
+          totalTrips={rider?.total_deliveries || 0}
+          photoKey={rider?.profile_photo_url || rider?.profile_photo_key}
+        />
 
-          {/* Stats Segment - Acceptance rate explicitly removed as requested */}
-          <View style={[styles.statsDivider, { backgroundColor: colors.border.subtle }]} />
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <View style={styles.statValueRow}>
-                <Ionicons name="star" size={18} color="#FFB300" style={styles.statIcon} />
-                <Text style={[styles.statValue, { color: colors.text.primary }]}>{currentRating}</Text>
-              </View>
-              <Text style={[styles.statLabel, { color: colors.text.muted }]}>Rating</Text>
-            </View>
+        {/* Sections */}
+        <MoreMenuSection title="MY ACCOUNT" items={accountItems} />
+        <MoreMenuSection title="SUPPORT & LEGAL" items={supportItems} />
 
-            <View style={[styles.verticalDivider, { backgroundColor: colors.border.subtle }]} />
-
-            <View style={styles.statBox}>
-              <Text style={[styles.statValue, { color: colors.text.primary }]}>{totalTrips}</Text>
-              <Text style={[styles.statLabel, { color: colors.text.muted }]}>Total Trips</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Option Group: My Account */}
-        <Text style={[styles.groupTitle, { color: colors.text.muted }]}>MY ACCOUNT</Text>
-        <View style={[styles.menuGroup, { backgroundColor: colors.background.card, borderColor: colors.border.subtle }]}>
-          <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuPress("Personal Information")}>
-            <View style={styles.menuItemLeft}>
-              <Ionicons name="person-outline" size={20} color={colors.text.secondary} />
-              <Text style={[styles.menuItemText, { color: colors.text.primary }]}>Personal Information</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
-          </TouchableOpacity>
-
-          <View style={[styles.rowDivider, { backgroundColor: colors.border.subtle }]} />
-
-          <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuPress("Documents")}>
-            <View style={styles.menuItemLeft}>
-              <Ionicons name="document-text-outline" size={20} color={colors.text.secondary} />
-              <Text style={[styles.menuItemText, { color: colors.text.primary }]}>Documents</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
-          </TouchableOpacity>
-
-          <View style={[styles.rowDivider, { backgroundColor: colors.border.subtle }]} />
-
-          <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuPress("Delivery History")}>
-            <View style={styles.menuItemLeft}>
-              <Ionicons name="receipt-outline" size={20} color={colors.text.secondary} />
-              <Text style={[styles.menuItemText, { color: colors.text.primary }]}>Delivery History</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
-          </TouchableOpacity>
-
-          <View style={[styles.rowDivider, { backgroundColor: colors.border.subtle }]} />
-
-          <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuPress("Notifications")}>
-            <View style={styles.menuItemLeft}>
-              <Ionicons name="notifications-outline" size={20} color={colors.text.secondary} />
-              <Text style={[styles.menuItemText, { color: colors.text.primary }]}>Notifications</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
-          </TouchableOpacity>
-
-          <View style={[styles.rowDivider, { backgroundColor: colors.border.subtle }]} />
-
-          <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuPress("KYC & Bank Details")}>
-            <View style={styles.menuItemLeft}>
-              <Ionicons name="card-outline" size={20} color={colors.text.secondary} />
-              <Text style={[styles.menuItemText, { color: colors.text.primary }]}>KYC & Bank</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
-          </TouchableOpacity>
-
-          <View style={[styles.rowDivider, { backgroundColor: colors.border.subtle }]} />
-
-          <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuPress("Training Modules")}>
-            <View style={styles.menuItemLeft}>
-              <Ionicons name="school-outline" size={20} color={colors.text.secondary} />
-              <Text style={[styles.menuItemText, { color: colors.text.primary }]}>Training</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Option Group: Support & Legal */}
-        <Text style={[styles.groupTitle, { color: colors.text.muted }]}>SUPPORT & LEGAL</Text>
-        <View style={[styles.menuGroup, { backgroundColor: colors.background.card, borderColor: colors.border.subtle }]}>
-          <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuPress("Help & Support Center")}>
-            <View style={styles.menuItemLeft}>
-              <Ionicons name="help-circle-outline" size={20} color={colors.text.secondary} />
-              <Text style={[styles.menuItemText, { color: colors.text.primary }]}>Help Center & FAQ</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
-          </TouchableOpacity>
-
-          <View style={[styles.rowDivider, { backgroundColor: colors.border.subtle }]} />
-
-          <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuPress("Terms & Conditions")}>
-            <View style={styles.menuItemLeft}>
-              <Ionicons name="document-lock-outline" size={20} color={colors.text.secondary} />
-              <Text style={[styles.menuItemText, { color: colors.text.primary }]}>Terms & Conditions</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
-          </TouchableOpacity>
-
-          <View style={[styles.rowDivider, { backgroundColor: colors.border.subtle }]} />
-
-          <TouchableOpacity style={styles.menuItem} onPress={() => handleMenuPress("Privacy Policy")}>
-            <View style={styles.menuItemLeft}>
-              <Ionicons name="shield-checkmark-outline" size={20} color={colors.text.secondary} />
-              <Text style={[styles.menuItemText, { color: colors.text.primary }]}>Privacy Policy</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Destructive Buttons */}
-        <View style={styles.actionBlock}>
-          <TouchableOpacity
-            style={[styles.logoutButton, { borderColor: colors.border.subtle }]}
-            onPress={handleLogoutPress}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="log-out-outline" size={18} color={colors.brand.primary} />
-            <Text style={[styles.logoutText, { color: colors.brand.primary }]}>Log Out</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={handleDeleteAccountPress}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.deleteText, { color: colors.status.error }]}>Delete Account</Text>
-          </TouchableOpacity>
-
-          <Text style={[styles.versionText, { color: colors.text.muted }]}>Version 1.0.0 (Production)</Text>
-        </View>
+        {/* Bottom actions */}
+        <MoreActionButtons
+          onLogout={handleLogoutPress}
+          onDeleteAccount={handleDeleteAccountPress}
+          version="Version 1.0.0 (Production)"
+        />
       </ScrollView>
     </View>
   );
@@ -249,148 +209,5 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 100,
-  },
-  profileCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 24,
-    elevation: 2,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  profileHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: {
-    fontSize: 18,
-    fontFamily: FontFamily.bold,
-  },
-  profileDetails: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  profileName: {
-    fontSize: 18,
-    fontFamily: FontFamily.bold,
-    marginBottom: 4,
-  },
-  profilePhone: {
-    fontSize: 14,
-    fontFamily: FontFamily.medium,
-  },
-  statsDivider: {
-    height: 1,
-    marginVertical: 14,
-  },
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-  },
-  statBox: {
-    flex: 1,
-    alignItems: "center",
-  },
-  statValueRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statIcon: {
-    marginRight: 4,
-  },
-  statValue: {
-    fontSize: 16,
-    fontFamily: FontFamily.bold,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontFamily: FontFamily.regular,
-    marginTop: 2,
-  },
-  verticalDivider: {
-    width: 1,
-    height: 24,
-  },
-  groupTitle: {
-    fontSize: 12,
-    fontFamily: FontFamily.bold,
-    letterSpacing: 1,
-    marginBottom: 8,
-    paddingLeft: 4,
-  },
-  menuGroup: {
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden",
-    marginBottom: 24,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  menuItemLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  menuItemText: {
-    fontSize: 14,
-    fontFamily: FontFamily.medium,
-  },
-  rowDivider: {
-    height: 1,
-    marginHorizontal: 16,
-  },
-  actionBlock: {
-    marginTop: 12,
-    alignItems: "center",
-    gap: 12,
-  },
-  logoutButton: {
-    width: "100%",
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  logoutText: {
-    fontSize: 15,
-    fontFamily: FontFamily.bold,
-  },
-  deleteButton: {
-    width: "100%",
-    height: 48,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  deleteText: {
-    fontSize: 14,
-    fontFamily: FontFamily.bold,
-  },
-  versionText: {
-    fontSize: 11,
-    fontFamily: FontFamily.regular,
-    marginTop: 8,
   },
 });

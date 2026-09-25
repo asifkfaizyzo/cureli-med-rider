@@ -87,12 +87,31 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       logout: async () => {
+        // 1. Stop foreground service + dismiss persistent notification
+        try {
+          const { stopLocationTracking } = require("../services/locationService");
+          await stopLocationTracking();
+        } catch {
+          // Ignore — location service may not be running
+        }
+
+        // 2. Reset operational state (isOnline, location, delivery, etc.)
+        try {
+          const { useRiderOperationalStore } = require("../store/riderOperationalStore");
+          useRiderOperationalStore.getState().reset();
+        } catch {
+          // Ignore — store should always exist, but be safe
+        }
+
+        // 3. Call backend logout (revokes JWT + sets rider offline + closes sessions)
         try {
           const { authApi } = require("../features/auth/api/auth.api");
           await authApi.logout();
         } catch {
           // Ignore — clear local state regardless
         }
+
+        // 4. Clear auth state
         set({
           rider: null,
           accessToken: null,
@@ -105,7 +124,6 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "rider-auth-store",
       storage: mmkvStorage,
-      // Only persist these fields (not status, which should re-check on launch)
       partialize: (state) => ({
         rider: state.rider,
         accessToken: state.accessToken,

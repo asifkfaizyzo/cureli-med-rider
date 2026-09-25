@@ -58,6 +58,7 @@ export interface RiderProfile {
   date_of_birth: string | null;
   sex: string | null;
   profile_photo_key: string | null;
+  profile_photo_url: string | null; 
   status: RiderStatus;
   suspension_reason: string | null;
   current_city: string | null;

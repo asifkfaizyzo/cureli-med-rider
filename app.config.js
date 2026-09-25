@@ -41,15 +41,16 @@ export default {
       predictiveBackGestureEnabled: false,
       package: "in.cureli.delivery",
       versionCode: 1,
-      // Uncomment when you download google-services.json for in.cureli.delivery from Firebase:
-      // googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
-     permissions: [
+      permissions: [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
-        "android.permission.ACCESS_FINE_LOCATION",      
-        "android.permission.ACCESS_COARSE_LOCATION",    
-        "android.permission.ACCESS_BACKGROUND_LOCATION", 
+        "android.permission.WAKE_LOCK",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
       ],
       config: {
         googleMaps: {
@@ -81,18 +82,19 @@ export default {
             "Cureli Delivery needs your location for navigation and tracking deliveries.",
           isIosBackgroundLocationEnabled: true,
           isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true,
         },
       ],
+      "expo-task-manager",
       [
         "expo-notifications",
         {
           icon: "./assets/images/android-icon-monochrome.png",
           color: "#090025",
-          defaultChannel: "default",
+          defaultChannel: "cureli-rider-online-service",
           sounds: [],
         },
       ],
-      // ── Pin AGP version for EAS build compatibility ───────────
       [
         "expo-build-properties",
         {

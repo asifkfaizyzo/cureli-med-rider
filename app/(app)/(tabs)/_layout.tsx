@@ -1,4 +1,5 @@
 // app/(app)/(tabs)/_layout.tsx (do not remove this comment)
+
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React, { useState, useMemo } from "react";
@@ -31,15 +32,16 @@ interface TabItem {
   icon: keyof typeof Ionicons.glyphMap;
 }
 
+// ── Semantic Tab Definition ────────────────────────────────────
 const ALL_TABS: Record<string, TabItem> = {
-  index: { name: "index", label: "Home", icon: "home-outline" },
+  home: { name: "home", label: "Home", icon: "home-outline" },
   wallet: { name: "wallet", label: "Wallet", icon: "wallet-outline" },
   refer: { name: "refer", label: "Refer", icon: "people-outline" },
   more: { name: "more", label: "More", icon: "grid-outline" },
 };
 
 const PILL_WIDTHS_MAP: Record<string, number> = {
-  index: 92,
+  home: 92,
   wallet: 102,
   refer: 96,
   more: 92,
@@ -48,11 +50,10 @@ const PILL_WIDTHS_MAP: Record<string, number> = {
 function CustomTabBar({ state, navigation, activeTabs }: any) {
   const { colors, isDark } = useTheme();
 
-  // ── Index Mapping Layer (Fixes Reanimated crash) ──────────
-  // Get current active route name from the raw navigation state
+  // Get current active route name from raw navigation state
   const currentRouteName = state.routes[state.index].name;
 
-  // Map route index to the filtered subset array (always 0 to activeTabs.length - 1)
+  // Map active route index securely to the active filtered subset array
   const safeActiveIndex = useMemo(() => {
     const idx = activeTabs.findIndex((t: TabItem) => t.name === currentRouteName);
     return idx !== -1 ? idx : 0;
@@ -60,7 +61,7 @@ function CustomTabBar({ state, navigation, activeTabs }: any) {
 
   const [displayIndex, setDisplayIndex] = useState(safeActiveIndex);
 
-  // Dynamic layout metrics based on current active count
+  // Dynamic layout metrics
   const tabCount = activeTabs.length;
   const slotWidth = (BAR_WIDTH - PADDING * 2) / tabCount;
 
@@ -72,7 +73,7 @@ function CustomTabBar({ state, navigation, activeTabs }: any) {
     return activeTabs.map((tab: TabItem) => PILL_WIDTHS_MAP[tab.name] ?? 92);
   }, [activeTabs]);
 
-  // Reanimated Shared Values
+  // Animated Shared Values
   const animIndex = useSharedValue(safeActiveIndex);
   const pillLeft = useSharedValue(
     centers[safeActiveIndex] - pillWidths[safeActiveIndex] / 2,
@@ -207,9 +208,9 @@ export default function TabsLayout() {
 
   const activeTabs = useMemo(() => {
     if (isTeam) {
-      return [ALL_TABS.index, ALL_TABS.more];
+      return [ALL_TABS.home, ALL_TABS.more];
     }
-    return [ALL_TABS.index, ALL_TABS.wallet, ALL_TABS.refer, ALL_TABS.more];
+    return [ALL_TABS.home, ALL_TABS.wallet, ALL_TABS.refer, ALL_TABS.more];
   }, [isTeam]);
 
   return (
@@ -217,7 +218,15 @@ export default function TabsLayout() {
       tabBar={(props) => <CustomTabBar {...props} activeTabs={activeTabs} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen name="index" />
+      {/* Route Redirection Handler (hidden from visual tab layout) */}
+      <Tabs.Screen
+        name="index"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen name="home" />
       
       <Tabs.Screen 
         name="wallet" 

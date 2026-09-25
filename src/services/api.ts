@@ -1,5 +1,4 @@
 // src/services/api.ts (do not remove this comment)
-//cureli-rider-app\src\services\api.ts
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { CONFIG } from '../constants/config';
 

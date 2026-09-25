@@ -7,6 +7,7 @@ import {
   Inter_800ExtraBold,
 } from "@expo-google-fonts/inter";
 import { Ionicons } from "@expo/vector-icons";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -19,7 +20,9 @@ import {
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { DevLocationOverride } from "../src/components/dev/DevLocationOverride";
+import { DialogProvider } from "../src/components/Dialog/DialogProvider";
+import "../src/services/locationTask";
 import { useAuthStore } from "../src/store/authStore";
 import { ThemeProvider, useTheme } from "../src/theme/ThemeContext";
 
@@ -98,18 +101,21 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="splash" options={{ animation: "fade" }} />
-            <Stack.Screen name="intro" />
-            <Stack.Screen name="terms" />
-            <Stack.Screen name="privacy" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(onboarding)" />
-            <Stack.Screen name="(app)" />
-          </Stack>
+          <DialogProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="splash" options={{ animation: "fade" }} />
+              <Stack.Screen name="intro" />
+              <Stack.Screen name="terms" />
+              <Stack.Screen name="privacy" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(onboarding)" />
+              <Stack.Screen name="(app)" />
+            </Stack>
 
-          <GlobalThemeToggle />
+            <GlobalThemeToggle />
+            <DevLocationOverride />
+          </DialogProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

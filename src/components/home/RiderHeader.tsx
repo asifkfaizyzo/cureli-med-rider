@@ -1,4 +1,5 @@
 // src/components/home/RiderHeader.tsx (do not remove this comment)
+
 import React, { useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -21,6 +22,7 @@ import { useRiderOperationalStore } from "../../store/riderOperationalStore";
 import { useAvailabilityToggle } from "../../hooks/useAvailabilityToggle";
 import { useAuthStore } from "../../store/authStore";
 import { AvailabilityToggle } from "./AvailabilityToggle";
+import { getRiderPhotoUrl } from "../../features/auth/utils/avatar";
 
 interface RiderHeaderProps {
   onHelpPress?: () => void;
@@ -32,9 +34,6 @@ interface RiderHeaderProps {
 }
 
 const LOGO = require("../../../assets/images/cureli_rider_logo.png");
-
-// Reasonable default so there's no visible "pop" before the first real
-// measurement lands (avoids a jitter on mount).
 const DEFAULT_TOP_ROW_HEIGHT = 64;
 
 export function RiderHeader({
@@ -53,12 +52,12 @@ export function RiderHeader({
   const rider = useAuthStore((state) => state.rider);
   const toggleMutation = useAvailabilityToggle();
 
-  // Drive the collapse animation on the UI thread (Reanimated), same as the
-  // bottom sheet / chevron, so the two never fight over the JS thread.
   const collapseProgress = useSharedValue(collapsed ? 1 : 0);
-
   const [topRowHeight, setTopRowHeight] = useState(DEFAULT_TOP_ROW_HEIGHT);
   const hasMeasuredRef = useRef(false);
+
+  // Error tracking for CDN photo delivery
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     collapseProgress.value = withTiming(collapsed ? 1 : 0, { duration: 220 });
@@ -81,6 +80,8 @@ export function RiderHeader({
   const initial = rider?.full_name?.trim()?.charAt(0)?.toUpperCase() || "R";
   const welcomeLine = `Welcome back, ${firstName}`;
 
+  const photoUrl = getRiderPhotoUrl(rider?.profile_photo_key);
+
   return (
     <View
       style={[
@@ -99,9 +100,6 @@ export function RiderHeader({
           disabled={!onRequestExpand}
           style={styles.topRow}
           onLayout={(e) => {
-            // Measure exactly once. Re-measuring while the row's parent
-            // height is being animated can report a slightly different
-            // number mid-animation and cause a visible micro-jump.
             if (hasMeasuredRef.current) return;
             const h = e.nativeEvent.layout.height;
             if (h > 0) {
@@ -138,9 +136,17 @@ export function RiderHeader({
               },
             ]}
           >
-            <Text style={[styles.avatarText, { color: colors.brand.primary }]}>
-              {initial}
-            </Text>
+            {photoUrl && !imageError ? (
+              <Image
+                source={{ uri: photoUrl }}
+                style={styles.avatarImage}
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <Text style={[styles.avatarText, { color: colors.brand.primary }]}>
+                {initial}
+              </Text>
+            )}
           </View>
         </Pressable>
       </Animated.View>
@@ -265,6 +271,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
   },
   avatarText: { fontSize: 13, fontFamily: FontFamily.bold },
   bottomRow: {

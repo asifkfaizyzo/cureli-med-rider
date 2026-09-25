@@ -4,8 +4,8 @@ import { CONFIG } from "../constants/config";
 import { useAuthStore } from "../store/authStore";
 
 // ── Constants ────────────────────────────────────────────────
-const MAX_RETRY_DELAY_MS = 30_000; // 30 seconds max backoff
-const INITIAL_RETRY_DELAY_MS = 2_000; // 2 seconds initial
+const MAX_RETRY_DELAY_MS = 30_000;
+const INITIAL_RETRY_DELAY_MS = 2_000;
 
 // ── State ────────────────────────────────────────────────────
 let eventSource: EventSource<never> | null = null;
@@ -24,7 +24,6 @@ export function onSSEEvent(eventName: string, handler: SSEEventHandler): () => v
   }
   eventHandlers[eventName].push(handler);
 
-  // Return cleanup function
   return () => {
     if (eventHandlers[eventName]) {
       eventHandlers[eventName] = eventHandlers[eventName].filter(
@@ -50,7 +49,6 @@ function emitEvent(eventName: string, data: any): void {
 
 export async function connectSSE(): Promise<void> {
   if (eventSource || isConnecting) {
-    console.log("[SSE] Already connected or connecting");
     return;
   }
 
@@ -69,25 +67,17 @@ export async function connectSSE(): Promise<void> {
       headers: {
         Authorization: `Bearer ${token}`,
       },
-      pollingInterval: 0, // Disable polling, use pure SSE
+      pollingInterval: 0,
     });
 
     eventSource.addEventListener("open", () => {
-      console.log("[SSE] Connection opened");
-      retryCount = 0; // Reset retry count on successful connection
+      retryCount = 0;
       isConnecting = false;
     });
 
-    eventSource.addEventListener("message", (event) => {
-      // Default message handler (shouldn't receive these)
-      console.log("[SSE] Received default message:", event.data);
-    });
-
-    // Custom event listeners — cast to any to bypass strict typing
     const es = eventSource as any;
 
     es.addEventListener("connected", (event: any) => {
-      console.log("[SSE] Connected event:", event.data);
       try {
         const data = JSON.parse(event.data);
         emitEvent("connected", data);
@@ -97,22 +87,27 @@ export async function connectSSE(): Promise<void> {
     });
 
     es.addEventListener("ping", (event: any) => {
-      // Heartbeat — no need to log every ping
       try {
         const data = JSON.parse(event.data);
         emitEvent("ping", data);
-      } catch {
-        // Ignore parse errors on ping
-      }
+      } catch {}
     });
 
-    // Future event types (Phase 7+)
     es.addEventListener("delivery_assigned", (event: any) => {
       try {
         const data = JSON.parse(event.data);
         emitEvent("delivery_assigned", data);
       } catch (error) {
         console.error("[SSE] Failed to parse delivery_assigned:", error);
+      }
+    });
+
+    es.addEventListener("order_ready_for_pickup", (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+        emitEvent("order_ready_for_pickup", data);
+      } catch (error) {
+        console.error("[SSE] Failed to parse order_ready_for_pickup:", error);
       }
     });
 
@@ -134,38 +129,15 @@ export async function connectSSE(): Promise<void> {
       }
     });
 
-    es.addEventListener("surge_activated", (event: any) => {
-      try {
-        const data = JSON.parse(event.data);
-        emitEvent("surge_activated", data);
-      } catch (error) {
-        console.error("[SSE] Failed to parse surge_activated:", error);
-      }
-    });
-
-    es.addEventListener("incentive_achieved", (event: any) => {
-      try {
-        const data = JSON.parse(event.data);
-        emitEvent("incentive_achieved", data);
-      } catch (error) {
-        console.error("[SSE] Failed to parse incentive_achieved:", error);
-      }
-    });
-
     eventSource.addEventListener("error", (error) => {
       console.error("[SSE] Error event:", error);
       isConnecting = false;
-      
-      // Attempt reconnect with exponential backoff
       scheduleReconnect();
     });
 
     es.addEventListener("close", () => {
-      console.log("[SSE] Connection closed");
       isConnecting = false;
       eventSource = null;
-      
-      // Attempt reconnect
       scheduleReconnect();
     });
 
@@ -181,18 +153,13 @@ function scheduleReconnect(): void {
     clearTimeout(retryTimeout);
   }
 
-  // Exponential backoff: 2s, 4s, 8s, 16s, 30s (max)
   const delay = Math.min(
     INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCount),
     MAX_RETRY_DELAY_MS,
   );
 
-  console.log(`[SSE] Reconnecting in ${delay / 1000}s (attempt ${retryCount + 1})`);
-
   retryTimeout = setTimeout(async () => {
     retryCount++;
-    
-    // Refresh token before reconnecting (in case it expired)
     const { refreshToken, setAccessToken, clearAuth } = useAuthStore.getState();
     
     if (refreshToken) {
@@ -204,12 +171,10 @@ function scheduleReconnect(): void {
         });
         
         const { data } = await response.json();
-
         if (data?.accessToken) {
           setAccessToken(data.accessToken);
         }
-      } catch (error) {
-        console.error("[SSE] Token refresh failed before reconnect:", error);
+      } catch {
         clearAuth();
         return;
       }
@@ -232,7 +197,6 @@ export function disconnectSSE(): void {
 
   retryCount = 0;
   isConnecting = false;
-  console.log("[SSE] Disconnected");
 }
 
 export function isSSEConnected(): boolean {
