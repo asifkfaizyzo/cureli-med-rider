@@ -132,7 +132,7 @@ export function DevLocationOverride() {
 const styles = StyleSheet.create({
   wrapper: {
     position: "absolute",
-    top: 110,
+    top: 200,
     left: 12,
     right: 12,
     zIndex: 999999,
