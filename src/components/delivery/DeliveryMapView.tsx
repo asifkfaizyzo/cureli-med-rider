@@ -1,8 +1,10 @@
 // src/components/delivery/DeliveryMapView.tsx (do not remove this comment)
 
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import MapView, { PROVIDER_GOOGLE, Polyline } from "react-native-maps";
+import * as PolylineDecoder from "@mapbox/polyline";
+import { api } from "../../services/api";
 import { useTheme } from "../../theme/ThemeContext";
 import { useRiderOperationalStore } from "../../store/riderOperationalStore";
 import { useMarkerBitmap } from "../../hooks/useMarkerBitmap";
@@ -45,6 +47,8 @@ export function DeliveryMapView({ leg, targetLat, targetLng }: DeliveryMapViewPr
   const { viewRef: riderIconRef, uri: riderIconUri } = useMarkerBitmap([isDark]);
 
   const hasAutoFittedForLegRef = useRef<DeliveryLeg | null>(null);
+  const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[] | null>(null);
+  const lastRouteKeyRef = useRef<string | null>(null);
 
   const fitToBoth = useCallback(() => {
     if (!mapRef.current || !currentLocation || targetLat == null || targetLng == null) {
@@ -73,6 +77,44 @@ export function DeliveryMapView({ leg, targetLat, targetLng }: DeliveryMapViewPr
     return () => clearTimeout(timer);
   }, [leg, currentLocation, targetLat, targetLng, fitToBoth]);
 
+  // Fetch real driving route polyline when leg or destination changes
+  useEffect(() => {
+    if (!currentLocation || targetLat == null || targetLng == null) {
+      setRouteCoords(null);
+      return;
+    }
+
+    const routeKey = `${leg}:${targetLat.toFixed(4)},${targetLng.toFixed(4)}`;
+    if (lastRouteKeyRef.current === routeKey && routeCoords) return;
+    lastRouteKeyRef.current = routeKey;
+
+    api
+      .get("/mobile/places/directions", {
+        params: {
+          originLat: currentLocation.lat,
+          originLng: currentLocation.lng,
+          destLat: targetLat,
+          destLng: targetLng,
+        },
+      })
+      .then((res) => {
+        const encoded = res.data?.data?.polyline;
+        if (encoded) {
+          const decoded = PolylineDecoder.decode(encoded).map(
+            ([lat, lng]) => ({ latitude: lat, longitude: lng })
+          );
+          setRouteCoords(decoded);
+        }
+      })
+      .catch(() => {
+        // Fallback to straight line if API fails
+        setRouteCoords([
+          { latitude: currentLocation.lat, longitude: currentLocation.lng },
+          { latitude: targetLat, longitude: targetLng },
+        ]);
+      });
+  }, [leg, targetLat, targetLng, currentLocation?.lat, currentLocation?.lng]);
+
   const initialRegion = currentLocation
     ? {
         latitude: currentLocation.lat,
@@ -81,14 +123,6 @@ export function DeliveryMapView({ leg, targetLat, targetLng }: DeliveryMapViewPr
         longitudeDelta: 0.02,
       }
     : DEFAULT_REGION;
-
-  const routeCoords =
-    currentLocation && targetLat != null && targetLng != null
-      ? [
-          { latitude: currentLocation.lat, longitude: currentLocation.lng },
-          { latitude: targetLat, longitude: targetLng },
-        ]
-      : null;
 
   return (
     <View style={styles.container}>
