@@ -114,7 +114,7 @@ export default function RootLayout() {
             </Stack>
 
             <GlobalThemeToggle />
-            {/* <DevLocationOverride /> */}
+            <DevLocationOverride />
           </DialogProvider>
         </ThemeProvider>
       </QueryClientProvider>
@@ -125,8 +125,8 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   floatingWrapper: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 54 : 40,
-    right: 16,
+    top: Platform.OS === "ios" ? 54 : 180,
+    left: 16,
     zIndex: 999999,
   },
   floatingButton: {

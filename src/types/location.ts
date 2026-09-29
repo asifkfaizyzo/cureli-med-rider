@@ -48,8 +48,10 @@ export interface NearbyShop {
   lng: number;
   address: string;
   is_open: boolean;
+  status_message?: string; 
   is_live: boolean;
   distance_km: number;
+  logo_url?: string | null;
 }
 
 export interface NearbyShopsResponse {

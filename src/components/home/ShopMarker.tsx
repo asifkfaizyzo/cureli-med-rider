@@ -1,9 +1,74 @@
 // src/components/home/ShopMarker.tsx (do not remove this comment)
-import { StyleSheet, Text, View } from "react-native";
+import { RefObject, useEffect, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { Marker } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
-import { FontFamily } from "../../theme/typography";
+
+export const SHOP_PIN_SIZE = 34;
+export const SHOP_PIN_SELECTED_SIZE = 40;
+
+export type ShopMarkerVariant = "open" | "selected" | "closed";
+
+/**
+ * Off-screen bitmap source for Shop markers.
+ * Rendered outside <MapView> as a sibling (just like RiderMarkerBitmapSource)
+ * to avoid Android native addFeature crashes.
+ */
+export function ShopMarkerBitmapSource({
+  viewRef,
+  variant,
+}: {
+  viewRef: RefObject<View | null>;
+  variant: ShopMarkerVariant;
+}) {
+  const { colors, isDark } = useTheme();
+
+  const isSelected = variant === "selected";
+  const isOpen = variant === "open" || isSelected;
+
+  const size = isSelected ? SHOP_PIN_SELECTED_SIZE : SHOP_PIN_SIZE;
+  const iconSize = isSelected ? 20 : 16;
+
+  const pinColor = isSelected
+    ? colors?.brand?.secondary || "#0C97B8"
+    : isOpen
+    ? colors?.brand?.primary || "#6A20CD"
+    : isDark
+    ? "#4B5563"
+    : "#9CA3AF";
+
+  return (
+    <View
+      ref={viewRef}
+      collapsable={false}
+      style={[
+        styles.hiddenCapture,
+        {
+          width: size,
+          height: size,
+        },
+      ]}
+      pointerEvents="none"
+    >
+      <View
+        style={[
+          styles.pin,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: pinColor,
+            borderColor: colors?.background?.card || "#FFFFFF",
+            borderWidth: isSelected ? 3.5 : 2.5,
+          },
+        ]}
+      >
+        <Ionicons name="medkit" size={iconSize} color="#FFFFFF" />
+      </View>
+    </View>
+  );
+}
 
 interface ShopMarkerProps {
   coordinate: {
@@ -12,88 +77,90 @@ interface ShopMarkerProps {
   };
   shopName: string;
   isOpen: boolean;
+  isSelected?: boolean;
+  iconUri?: string | null;
   onPress?: () => void;
 }
 
 export function ShopMarker({
   coordinate,
-  shopName,
   isOpen,
+  isSelected = false,
+  iconUri,
   onPress,
 }: ShopMarkerProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const [trackChanges, setTrackChanges] = useState(true);
+
+  useEffect(() => {
+    setTrackChanges(true);
+    const t = setTimeout(() => setTrackChanges(false), 350);
+    return () => clearTimeout(t);
+  }, [isSelected, isOpen]);
+
+  // If the pre-rendered bitmap URI is ready, use it directly (immune to clipping)
+  if (iconUri) {
+    return (
+      <Marker
+        coordinate={coordinate}
+        anchor={{ x: 0.5, y: 0.5 }}
+        image={{ uri: iconUri }}
+        tracksViewChanges={false}
+        onPress={onPress}
+        zIndex={isSelected ? 10 : 3}
+      />
+    );
+  }
+
+  // Fallback direct view (without elevation to prevent hardware canvas clipping)
+  const size = isSelected ? SHOP_PIN_SELECTED_SIZE : SHOP_PIN_SIZE;
+  const iconSize = isSelected ? 20 : 16;
+
+  const pinColor = isSelected
+    ? colors?.brand?.secondary || "#0C97B8"
+    : isOpen
+    ? colors?.brand?.primary || "#6A20CD"
+    : isDark
+    ? "#4B5563"
+    : "#9CA3AF";
 
   return (
     <Marker
       coordinate={coordinate}
+      anchor={{ x: 0.5, y: 0.5 }}
+      tracksViewChanges={trackChanges}
       onPress={onPress}
-      tracksViewChanges={false} // Performance optimization
+      zIndex={isSelected ? 10 : 3}
     >
-      <View style={styles.container}>
-        {/* Pin */}
-        <View
-          style={[
-            styles.pin,
-            {
-              backgroundColor: isOpen ? colors.brand.primary : colors.text.disabled,
-            },
-          ]}
-        >
-          <Ionicons
-            name="medkit"
-            size={16}
-            color="#ffffff"
-          />
-        </View>
-        {/* Label */}
-        {!isOpen && (
-          <View
-            style={[
-              styles.label,
-              {
-                backgroundColor: colors.background.card,
-                borderColor: colors.border.default,
-              },
-            ]}
-          >
-            <Text style={[styles.labelText, { color: colors.status.error }]}>
-              Closed
-            </Text>
-          </View>
-        )}
+      <View
+        style={[
+          styles.pin,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: pinColor,
+            borderColor: colors?.background?.card || "#FFFFFF",
+            borderWidth: isSelected ? 3.5 : 2.5,
+          },
+        ]}
+      >
+        <Ionicons name="medkit" size={iconSize} color="#FFFFFF" />
       </View>
     </Marker>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: "center",
-  },
-  pin: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  hiddenCapture: {
+    position: "absolute",
+    top: -9999,
+    left: -9999,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#ffffff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 4,
   },
-  label: {
-    marginTop: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-  },
-  labelText: {
-    fontSize: 9,
-    fontFamily: FontFamily.bold,
-    textTransform: "uppercase",
+  pin: {
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

@@ -3,6 +3,7 @@
 import { router } from "expo-router";
 import React from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { useDialog } from "../../../src/components/Dialog/DialogProvider";
 import { RiderHeader } from "../../../src/components/home/RiderHeader";
 import { MoreActionButtons } from "../../../src/components/profile/MoreActionButtons";
 import {
@@ -10,7 +11,6 @@ import {
   MoreMenuSection,
 } from "../../../src/components/profile/MoreMenuSection";
 import { ProfileCard } from "../../../src/components/profile/ProfileCard";
-import { useDialog } from "../../../src/components/Dialog/DialogProvider";
 import { useAuthStore } from "../../../src/store/authStore";
 import { useRiderOperationalStore } from "../../../src/store/riderOperationalStore";
 import { useTheme } from "../../../src/theme/ThemeContext";
@@ -109,12 +109,12 @@ export default function MoreScreen() {
     {
       label: "Personal Information",
       icon: "person-outline",
-      onPress: () => handleMenuPress("Personal Information"),
+      onPress: () => router.push("/(app)/personal-info"),
     },
     {
       label: "Documents",
       icon: "document-text-outline",
-      onPress: () => handleMenuPress("Documents"),
+      onPress: () => router.push("/(app)/documents"),
     },
     {
       label: "Delivery History",

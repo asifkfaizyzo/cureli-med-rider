@@ -59,6 +59,21 @@ export function RiderHeader({
   // Error tracking for CDN photo delivery
   const [imageError, setImageError] = useState(false);
 
+  // Fallback chain across common property names returned by the backend/store
+  const rawPhotoKeyOrUrl =
+    rider?.profile_photo_url ||
+    rider?.profile_photo_key ||
+    (rider as any)?.profile_photo ||
+    (rider as any)?.photo_url ||
+    (rider as any)?.avatar_url;
+
+  const photoUrl = getRiderPhotoUrl(rawPhotoKeyOrUrl);
+
+  // Reset error state whenever the photo URL changes/loads
+  useEffect(() => {
+    setImageError(false);
+  }, [photoUrl]);
+
   useEffect(() => {
     collapseProgress.value = withTiming(collapsed ? 1 : 0, { duration: 220 });
   }, [collapsed, collapseProgress]);
@@ -79,8 +94,6 @@ export function RiderHeader({
   const firstName = rider?.full_name?.trim()?.split(" ")?.[0] || "Rider";
   const initial = rider?.full_name?.trim()?.charAt(0)?.toUpperCase() || "R";
   const welcomeLine = `Welcome back, ${firstName}`;
-
-  const photoUrl = getRiderPhotoUrl(rider?.profile_photo_key);
 
   return (
     <View
@@ -138,6 +151,7 @@ export function RiderHeader({
           >
             {photoUrl && !imageError ? (
               <Image
+                key={photoUrl}
                 source={{ uri: photoUrl }}
                 style={styles.avatarImage}
                 onError={() => setImageError(true)}

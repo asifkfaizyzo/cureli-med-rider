@@ -22,7 +22,7 @@ export function RecenterButton({ onPress }: RecenterButtonProps) {
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Ionicons name="locate" size={24} color={colors.brand.primary} />
+      <Ionicons name="locate" size={24} color={colors.brand.secondary} />
     </TouchableOpacity>
   );
 }
@@ -30,10 +30,10 @@ export function RecenterButton({ onPress }: RecenterButtonProps) {
 const styles = StyleSheet.create({
   button: {
     position: "absolute",
-    top: 20, // Above bottom sheet snap point + tab bar
+    top: 16, // Above bottom sheet snap point + tab bar
     right: 16,
-    width: 48,
-    height: 48,
+      width: 58,
+    height: 58,
     borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",

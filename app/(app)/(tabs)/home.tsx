@@ -17,7 +17,8 @@ const COLLAPSE_IDLE_MS = 2200;
 export default function HomeScreen() {
   const { colors } = useTheme();
   const isOnline = useRiderOperationalStore((state) => state.isOnline);
-  const riderType = useAuthStore((state) => state.rider?.rider_type) || "INDEPENDENT";
+  const riderType =
+    useAuthStore((state) => state.rider?.rider_type) || "INDEPENDENT";
 
   const bottomSheetRef = useRef<BottomSheet>(null);
 
@@ -89,7 +90,9 @@ export default function HomeScreen() {
   }, [isOnline]);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background.page }]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.background.page }]}
+    >
       <View style={styles.container}>
         <RiderHeader
           collapsed={isOnline ? headerCollapsed : false}
@@ -102,7 +105,10 @@ export default function HomeScreen() {
         {isOnline ? (
           <>
             <View style={styles.mapContainer}>
-              <OnlineMapView onUserInteract={handleMapInteract} />
+              <OnlineMapView
+                onUserInteract={handleMapInteract}
+                isSheetOpen={isSheetOpen}
+              />
             </View>
 
             <HomeBottomSheet
