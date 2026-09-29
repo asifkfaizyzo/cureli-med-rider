@@ -1,11 +1,12 @@
 // src/components/delivery/TopStatusBar.tsx (do not remove this comment)
 
 import React from "react";
-import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
 import type { DeliveryLeg } from "../../utils/deliveryStatus";
+import { useDialog } from "../Dialog/DialogProvider";
 
 interface TopStatusBarProps {
   orderNumber: string;
@@ -16,32 +17,40 @@ interface TopStatusBarProps {
 // support module exists in the backend yet (only auth/dashboard/delivery/
 // onboarding/presence/shops/sse under modules/rider/*). Real backend-wired
 // SOS is an explicitly separate future project.
-const SUPPORT_PHONE = "18001234567";
+const SUPPORT_PHONE = "+91 98959 42201";
 
 export function TopStatusBar({ orderNumber, leg }: TopStatusBarProps) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const dialog = useDialog();
 
-  const handleHelp = () => {
-    Alert.alert("Need Help?", "Contact rider support for assistance with this delivery.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Call Support", onPress: () => Linking.openURL(`tel:${SUPPORT_PHONE}`) },
-    ]);
+  const handleHelp = async () => {
+    const confirmed = await dialog.confirm({
+      title: "Need Help?",
+      message: "Contact rider support for assistance with this delivery.",
+      cancelLabel: "Cancel",
+      confirmLabel: "Call Support",
+      icon: "support-agent",
+    });
+
+    if (confirmed) {
+      Linking.openURL(`tel:${SUPPORT_PHONE}`);
+    }
   };
 
-  const handleSOS = () => {
-    Alert.alert(
-      "Emergency SOS",
-      "This will alert Cureli support immediately. Only use in a genuine emergency.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Call Emergency Line",
-          style: "destructive",
-          onPress: () => Linking.openURL(`tel:${SUPPORT_PHONE}`),
-        },
-      ],
-    );
+  const handleSOS = async () => {
+    const confirmed = await dialog.confirm({
+      title: "Emergency SOS",
+      message: "This will alert Cureli support immediately. Only use in a genuine emergency.",
+      cancelLabel: "Cancel",
+      confirmLabel: "Call Emergency Line",
+      destructive: true,
+      icon: "warning",
+    });
+
+    if (confirmed) {
+      Linking.openURL(`tel:${SUPPORT_PHONE}`);
+    }
   };
 
   return (

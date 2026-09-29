@@ -1,10 +1,10 @@
 // src/hooks/useAvailabilityToggle.ts (do not remove this comment)
-import { Alert } from "react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { homeApi } from "../features/home/api/home.api";
 import { useRiderOperationalStore } from "../store/riderOperationalStore";
 import { useAuthStore } from "../store/authStore";
 import { getCurrentLocation } from "../services/locationService";
+import { useDialog } from "../components/Dialog/DialogProvider";
 
 /**
  * React Query mutation hook for toggling availability.
@@ -12,6 +12,7 @@ import { getCurrentLocation } from "../services/locationService";
  */
 export function useAvailabilityToggle() {
   const queryClient = useQueryClient();
+  const dialog = useDialog();
   const { setOnline, setToggling, setActiveDelivery } =
     useRiderOperationalStore();
   const updateRider = useAuthStore((state) => state.updateRider);
@@ -52,15 +53,18 @@ export function useAvailabilityToggle() {
 
       if (code === "ACTIVE_DELIVERY") {
         // ── Surface descriptive error explaining the active state lock ───────
-        Alert.alert(
-          "Status Locked",
-          message || "You cannot go offline while you have an active delivery."
-        );
+        dialog.alert({
+          title: "Status Locked",
+          message: message || "You cannot go offline while you have an active delivery.",
+          icon: "lock-outline",
+        });
       } else {
-        Alert.alert(
-          "Connection Error",
-          message || "Could not reach server. Please check your network and try again."
-        );
+        dialog.alert({
+          title: "Connection Error",
+          message: message || "Could not reach server. Please check your network and try again.",
+          icon: "cloud-off",
+          destructive: true,
+        });
       }
     },
 

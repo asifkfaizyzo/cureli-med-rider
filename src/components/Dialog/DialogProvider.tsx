@@ -2,6 +2,7 @@
 // src/components/Dialog/DialogProvider.tsx
 //
 // Imperative dialog system. Use useDialog() anywhere in the app.
+// Or use globalDialog.alert() / globalDialog.confirm() outside React components (e.g., in Zustand stores).
 //
 // Usage:
 //   const { confirm, alert } = useDialog();
@@ -19,29 +20,31 @@
 //     message: 'Address saved.',
 //   });
 
+import { MaterialIcons } from "@expo/vector-icons";
 import React, {
   createContext,
-  useContext,
-  useState,
-  useCallback,
-  useRef,
   ReactNode,
-} from 'react';
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
   Animated,
   Easing,
-} from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../../theme/ThemeContext';
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useTheme } from "../../theme/ThemeContext";
 
 // ── Types ─────────────────────────────────────────────────────
 
-interface DialogOptions {
+export interface DialogOptions {
   title: string;
   message?: string;
   confirmLabel?: string;
@@ -52,14 +55,29 @@ interface DialogOptions {
   alertOnly?: boolean;
 }
 
-interface DialogContextValue {
+export interface DialogContextValue {
   confirm: (options: DialogOptions) => Promise<boolean>;
-  alert: (options: Omit<DialogOptions, 'cancelLabel'>) => Promise<void>;
+  alert: (options: Omit<DialogOptions, "cancelLabel">) => Promise<void>;
 }
 
 // ── Context ───────────────────────────────────────────────────
 
 const DialogContext = createContext<DialogContextValue | null>(null);
+
+// ── Global Instance for non-React code (e.g., Zustand stores) ─
+
+let globalDialogInstance: DialogContextValue | null = null;
+
+export const globalDialog = {
+  confirm: (options: DialogOptions): Promise<boolean> =>
+    globalDialogInstance
+      ? globalDialogInstance.confirm(options)
+      : Promise.resolve(false),
+  alert: (options: Omit<DialogOptions, "cancelLabel">): Promise<void> =>
+    globalDialogInstance
+      ? globalDialogInstance.alert(options)
+      : Promise.resolve(),
+};
 
 // ── Provider ──────────────────────────────────────────────────
 
@@ -70,10 +88,10 @@ interface DialogState extends DialogOptions {
 
 const INITIAL_STATE: DialogState = {
   visible: false,
-  title: '',
+  title: "",
   message: undefined,
-  confirmLabel: 'Confirm',
-  cancelLabel: 'Cancel',
+  confirmLabel: "Confirm",
+  cancelLabel: "Cancel",
   destructive: false,
   icon: undefined,
   alertOnly: false,
@@ -85,53 +103,59 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  const showDialog = useCallback((options: DialogOptions): Promise<boolean> => {
-    return new Promise((resolve) => {
-      setState({
-        ...INITIAL_STATE,
-        ...options,
-        visible: true,
-        resolve,
-      });
+  const showDialog = useCallback(
+    (options: DialogOptions): Promise<boolean> => {
+      return new Promise((resolve) => {
+        setState({
+          ...INITIAL_STATE,
+          ...options,
+          visible: true,
+          resolve,
+        });
 
-      // Animate in
-      scaleAnim.setValue(0.85);
-      opacityAnim.setValue(0);
+        // Animate in
+        scaleAnim.setValue(0.85);
+        opacityAnim.setValue(0);
+        Animated.parallel([
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            damping: 18,
+            stiffness: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacityAnim, {
+            toValue: 1,
+            duration: 180,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    },
+    [scaleAnim, opacityAnim],
+  );
+
+  const dismiss = useCallback(
+    (value: boolean) => {
       Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          damping: 18,
-          stiffness: 300,
+        Animated.timing(scaleAnim, {
+          toValue: 0.9,
+          duration: 120,
           useNativeDriver: true,
         }),
         Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 180,
-          easing: Easing.out(Easing.ease),
+          toValue: 0,
+          duration: 120,
           useNativeDriver: true,
         }),
-      ]).start();
-    });
-  }, [scaleAnim, opacityAnim]);
-
-  const dismiss = useCallback((value: boolean) => {
-    Animated.parallel([
-      Animated.timing(scaleAnim, {
-        toValue: 0.9,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 0,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      const resolve = state.resolve;
-      setState(INITIAL_STATE);
-      resolve?.(value);
-    });
-  }, [scaleAnim, opacityAnim, state.resolve]);
+      ]).start(() => {
+        const resolve = state.resolve;
+        setState(INITIAL_STATE);
+        resolve?.(value);
+      });
+    },
+    [scaleAnim, opacityAnim, state.resolve],
+  );
 
   const confirm = useCallback(
     (options: DialogOptions) => showDialog(options),
@@ -139,13 +163,22 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   );
 
   const alert = useCallback(
-    (options: Omit<DialogOptions, 'cancelLabel'>): Promise<void> =>
+    (options: Omit<DialogOptions, "cancelLabel">): Promise<void> =>
       showDialog({ ...options, alertOnly: true }).then(() => undefined),
     [showDialog],
   );
 
+  const contextValue = useMemo(() => ({ confirm, alert }), [confirm, alert]);
+
+  useEffect(() => {
+    globalDialogInstance = contextValue;
+    return () => {
+      globalDialogInstance = null;
+    };
+  }, [contextValue]);
+
   return (
-    <DialogContext.Provider value={{ confirm, alert }}>
+    <DialogContext.Provider value={contextValue}>
       {children}
       <DialogModal
         state={state}
@@ -180,14 +213,14 @@ function DialogModal({
   const confirmColor = state.destructive
     ? colors.status.error
     : isDark
-    ? colors.brand.accent
-    : colors.brand.primary;
+      ? colors.brand.accent
+      : colors.brand.primary;
 
   const iconColor = state.destructive
     ? colors.status.error
     : isDark
-    ? colors.brand.accent
-    : colors.brand.primary;
+      ? colors.brand.accent
+      : colors.brand.primary;
 
   const iconBgColor = state.destructive
     ? colors.status.errorBg
@@ -228,7 +261,9 @@ function DialogModal({
         >
           {/* Icon */}
           {state.icon && (
-            <View style={[styles.iconWrapper, { backgroundColor: iconBgColor }]}>
+            <View
+              style={[styles.iconWrapper, { backgroundColor: iconBgColor }]}
+            >
               <MaterialIcons name={state.icon} size={28} color={iconColor} />
             </View>
           )}
@@ -246,13 +281,17 @@ function DialogModal({
           ) : null}
 
           {/* Divider */}
-          <View style={[styles.divider, { backgroundColor: colors.border.subtle }]} />
+          <View
+            style={[styles.divider, { backgroundColor: colors.border.subtle }]}
+          />
 
           {/* Buttons */}
-          <View style={[
-            styles.buttonRow,
-            state.alertOnly && styles.buttonRowSingle,
-          ]}>
+          <View
+            style={[
+              styles.buttonRow,
+              state.alertOnly && styles.buttonRowSingle,
+            ]}
+          >
             {!state.alertOnly && (
               <>
                 <TouchableOpacity
@@ -271,19 +310,21 @@ function DialogModal({
                       { color: colors.text.muted },
                     ]}
                   >
-                    {state.cancelLabel ?? 'Cancel'}
+                    {state.cancelLabel ?? "Cancel"}
                   </Text>
                 </TouchableOpacity>
 
-                <View style={[styles.buttonDivider, { backgroundColor: colors.border.subtle }]} />
+                <View
+                  style={[
+                    styles.buttonDivider,
+                    { backgroundColor: colors.border.subtle },
+                  ]}
+                />
               </>
             )}
 
             <TouchableOpacity
-              style={[
-                styles.button,
-                state.alertOnly && styles.buttonFull,
-              ]}
+              style={[styles.button, state.alertOnly && styles.buttonFull]}
               onPress={onConfirm}
               activeOpacity={0.7}
             >
@@ -294,7 +335,7 @@ function DialogModal({
                   { color: confirmColor },
                 ]}
               >
-                {state.confirmLabel ?? 'OK'}
+                {state.confirmLabel ?? "OK"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -308,7 +349,7 @@ function DialogModal({
 
 export function useDialog(): DialogContextValue {
   const ctx = useContext(DialogContext);
-  if (!ctx) throw new Error('useDialog must be used within DialogProvider');
+  if (!ctx) throw new Error("useDialog must be used within DialogProvider");
   return ctx;
 }
 
@@ -317,21 +358,21 @@ export function useDialog(): DialogContextValue {
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: "rgba(0,0,0,0.55)",
   },
   centerer: {
     ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 32,
   },
   card: {
-    width: '100%',
+    width: "100%",
     borderRadius: 20,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: "hidden",
     // Shadow
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 24,
@@ -341,24 +382,24 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
     marginTop: 24,
     marginBottom: 4,
   },
   title: {
     fontSize: 17,
-    fontFamily: 'Inter_700Bold',
-    textAlign: 'center',
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
     paddingHorizontal: 24,
     paddingTop: 20,
     lineHeight: 24,
   },
   message: {
     fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    textAlign: 'center',
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
     paddingHorizontal: 24,
     paddingTop: 8,
     paddingBottom: 20,
@@ -369,16 +410,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
   },
   buttonRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     height: 52,
   },
   buttonRowSingle: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   button: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonFull: {
     flex: 1,
@@ -391,12 +432,12 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 15,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: "Inter_600SemiBold",
   },
   cancelText: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: "Inter_500Medium",
   },
   confirmText: {
-    fontFamily: 'Inter_700Bold',
+    fontFamily: "Inter_700Bold",
   },
 });

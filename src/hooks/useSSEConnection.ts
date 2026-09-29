@@ -1,12 +1,9 @@
 // src/hooks/useSSEConnection.ts (do not remove this comment)
 import { useEffect } from "react";
 import { AppState, AppStateStatus } from "react-native";
+import { useDialog } from "../components/Dialog/DialogProvider";
+import { connectSSE, disconnectSSE, onSSEEvent } from "../services/sseManager";
 import { useAuthStore } from "../store/authStore";
-import {
-  connectSSE,
-  disconnectSSE,
-  onSSEEvent,
-} from "../services/sseManager";
 
 /**
  * Custom hook to manage SSE connection lifecycle.
@@ -15,6 +12,7 @@ import {
  */
 export function useSSEConnection() {
   const status = useAuthStore((state) => state.status);
+  const dialog = useDialog();
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -22,7 +20,7 @@ export function useSSEConnection() {
       connectSSE();
 
       // Listen for app state changes
-            const subscription = AppState.addEventListener(
+      const subscription = AppState.addEventListener(
         "change",
         async (nextAppState: AppStateStatus) => {
           if (nextAppState === "active") {
@@ -37,23 +35,44 @@ export function useSSEConnection() {
                 success: boolean;
                 data: { is_online: boolean };
               }>("/rider/presence/status");
+
               const serverOnline = res.data?.data?.is_online ?? false;
-              const { useRiderOperationalStore } = await import(
-                "../store/riderOperationalStore"
-              );
-              const localOnline =
-                useRiderOperationalStore.getState().isOnline;
+
+              const { useRiderOperationalStore } =
+                await import("../store/riderOperationalStore");
+              const localOnline = useRiderOperationalStore.getState().isOnline;
+
               if (localOnline !== serverOnline) {
+                // Harmonize operational store
                 useRiderOperationalStore
                   .getState()
                   .syncFromProfile(serverOnline);
+
+                // Harmonize authStore profile object
+                const { useAuthStore: authStoreInstance } =
+                  await import("../store/authStore");
+                authStoreInstance
+                  .getState()
+                  .updateRider({ is_online: serverOnline });
+
+                // Surface alert if rider was auto-offlined silently by background stale engine
+                if (localOnline && !serverOnline) {
+                  dialog.alert({
+                    title: "Status Updated",
+                    message:
+                      "You were marked offline due to inactivity or lack of GPS signal.",
+                    icon: "cloud-off",
+                  });
+                }
               }
-            } catch {
-              // Non-critical — if the sync fails, the toggle stays as-is.
-              // The next successful sync will correct it.
+            } catch (err) {
+              console.error(
+                "[SSE] Failed to reconcile background-to-foreground status:",
+                err,
+              );
             }
           } else if (nextAppState === "background") {
-            // Disconnect when app goes to background (Phase 1)
+            // Disconnect when app goes to background
             disconnectSSE();
           }
         },
@@ -67,9 +86,9 @@ export function useSSEConnection() {
       // Disconnect when logged out
       disconnectSSE();
     }
-  }, [status]);
+  }, [status, dialog]);
 
-  // Example: Listen for connected event
+  // Listen for connected event
   useEffect(() => {
     const unsubscribe = onSSEEvent("connected", (data) => {
       console.log("[SSE] Rider connected:", data);

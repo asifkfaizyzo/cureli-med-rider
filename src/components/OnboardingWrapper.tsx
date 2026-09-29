@@ -4,7 +4,6 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ReactNode } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -17,6 +16,7 @@ import { useAuthStore } from "../store/authStore";
 import { useTheme } from "../theme/ThemeContext";
 import { FontFamily } from "../theme/typography";
 import type { OnboardingStep } from "../types/auth";
+import { useDialog } from "./Dialog/DialogProvider";
 
 // ── Step metadata ──────────────────────────────────────────────
 
@@ -109,6 +109,7 @@ export function OnboardingWrapper({
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const { logout } = useAuthStore();
+  const dialog = useDialog();
 
   const meta = STEP_META[currentStep];
 
@@ -131,22 +132,21 @@ export function OnboardingWrapper({
     router.replace(meta.backRoute as any);
   }
 
-  function handleLogout() {
-    Alert.alert(
-      "Log out?",
-      "Your progress is saved. You can continue where you left off next time you log in.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Log out",
-          style: "destructive",
-          onPress: async () => {
-            await logout();
-            router.replace("/(auth)/login");
-          },
-        },
-      ],
-    );
+  async function handleLogout() {
+    const confirmed = await dialog.confirm({
+      title: "Log out?",
+      message:
+        "Your progress is saved. You can continue where you left off next time you log in.",
+      cancelLabel: "Cancel",
+      confirmLabel: "Log out",
+      destructive: true,
+      icon: "logout",
+    });
+
+    if (confirmed) {
+      await logout();
+      router.replace("/(auth)/login");
+    }
   }
 
   function renderSectionDots(sectionKey: SectionKey, steps: OnboardingStep[]) {

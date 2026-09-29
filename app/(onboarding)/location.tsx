@@ -6,7 +6,6 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useDialog } from "../../src/components/Dialog/DialogProvider";
 import { OnboardingWrapper } from "../../src/components/OnboardingWrapper";
 import { onboardingApi } from "../../src/features/onboarding/api/onboarding.api";
 import { useAuthStore } from "../../src/store/authStore";
@@ -35,6 +35,7 @@ export default function LocationScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const { updateRider } = useAuthStore();
+  const dialog = useDialog();
 
   // Form Fields
   const [city, setCity] = useState("");
@@ -114,10 +115,12 @@ export default function LocationScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert(
-          "Permission Required",
-          "Please enable location permissions in your device settings.",
-        );
+        dialog.alert({
+          title: "Permission Required",
+          message:
+            "Please enable location permissions in your device settings.",
+          icon: "location-off",
+        });
         return;
       }
 
@@ -148,7 +151,12 @@ export default function LocationScreen() {
         }
       }
     } catch {
-      Alert.alert("Location Error", "Could not fetch your current location.");
+      dialog.alert({
+        title: "Location Error",
+        message: "Could not fetch your current location.",
+        icon: "error-outline",
+        destructive: true,
+      });
     } finally {
       setLocating(false);
     }

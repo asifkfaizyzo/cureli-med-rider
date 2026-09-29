@@ -3,7 +3,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  Alert,
   Linking,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import { useProximity } from "../../hooks/useProximity";
 import { useDeliveryStore } from "../../store/deliveryStore";
 import { useTheme } from "../../theme/ThemeContext";
 import type { ActiveDelivery } from "../../types/delivery";
+import { useDialog } from "../Dialog/DialogProvider";
 import { GeofencedSlideToConfirm } from "./GeofencedSlideToConfirm";
 import { InlineOtpInput } from "./InlineOtpInput";
 
@@ -31,6 +31,7 @@ interface PharmacyLegPanelProps {
 export function PharmacyLegPanel({ delivery }: PharmacyLegPanelProps) {
   const { colors } = useTheme();
   const setActiveDelivery = useDeliveryStore((s) => s.setActiveDelivery);
+  const dialog = useDialog();
 
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState(false);
@@ -56,10 +57,11 @@ export function PharmacyLegPanel({ delivery }: PharmacyLegPanelProps) {
         `https://www.google.com/maps/dir/?api=1&destination=${targetLat},${targetLng}`,
       );
     } else {
-      Alert.alert(
-        "GPS Missing",
-        "Location coordinates unavailable for this step.",
-      );
+      dialog.alert({
+        title: "GPS Missing",
+        message: "Location coordinates unavailable for this step.",
+        icon: "location-off",
+      });
     }
   };
 
@@ -75,10 +77,11 @@ export function PharmacyLegPanel({ delivery }: PharmacyLegPanelProps) {
       );
       setActiveDelivery(updated);
     } catch (err: any) {
-      Alert.alert(
-        "Error",
-        err?.response?.data?.message || "Failed to update status",
-      );
+      dialog.alert({
+        title: "Error",
+        message: err?.response?.data?.message || "Failed to update status",
+        icon: "error-outline",
+      });
     }
   };
 
@@ -96,11 +99,14 @@ export function PharmacyLegPanel({ delivery }: PharmacyLegPanelProps) {
     } catch (err: any) {
       setOtpError(true);
       setOtp("");
-      Alert.alert(
-        "Invalid PIN",
-        err?.response?.data?.message ||
+      dialog.alert({
+        title: "Invalid PIN",
+        message:
+          err?.response?.data?.message ||
           "The pickup PIN you entered is incorrect. Please check with the pharmacy and try again.",
-      );
+        icon: "cancel",
+        destructive: true,
+      });
     }
   };
 

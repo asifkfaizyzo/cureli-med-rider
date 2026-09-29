@@ -3,7 +3,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  Alert,
   Linking,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import { useProximity } from "../../hooks/useProximity";
 import { useDeliveryStore } from "../../store/deliveryStore";
 import { useTheme } from "../../theme/ThemeContext";
 import type { ActiveDelivery } from "../../types/delivery";
+import { useDialog } from "../Dialog/DialogProvider";
 import { GeofencedSlideToConfirm } from "./GeofencedSlideToConfirm";
 import { InlineOtpInput } from "./InlineOtpInput";
 
@@ -47,6 +47,7 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
   const { colors } = useTheme();
   const setActiveDelivery = useDeliveryStore((s) => s.setActiveDelivery);
   const clearActiveDelivery = useDeliveryStore((s) => s.clearActiveDelivery);
+  const dialog = useDialog();
 
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState(false);
@@ -90,7 +91,11 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
         `https://www.google.com/maps/dir/?api=1&destination=${targetLat},${targetLng}`,
       );
     } else {
-      Alert.alert("GPS Missing", "Location coordinates unavailable for this step.");
+      dialog.alert({
+        title: "GPS Missing",
+        message: "Location coordinates unavailable for this step.",
+        icon: "location-off",
+      });
     }
   };
 
@@ -103,7 +108,11 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
       const updated = await deliveryApi.updateStatus(delivery.delivery_id, "ARRIVED_AT_CUSTOMER");
       setActiveDelivery(updated);
     } catch (err: any) {
-      Alert.alert("Error", err?.response?.data?.message || "Failed to update status");
+      dialog.alert({
+        title: "Error",
+        message: err?.response?.data?.message || "Failed to update status",
+        icon: "error-outline",
+      });
     }
   };
 
@@ -114,15 +123,22 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
       setOtp("");
       setOtpError(false);
       clearActiveDelivery();
-      Alert.alert("Order Delivered!", "Delivery completed successfully. Great job!");
+      dialog.alert({
+        title: "Order Delivered!",
+        message: "Delivery completed successfully. Great job!",
+        icon: "check-circle-outline",
+      });
     } catch (err: any) {
       setOtpError(true);
       setOtp("");
-      Alert.alert(
-        "Invalid PIN",
-        err?.response?.data?.message ||
+      dialog.alert({
+        title: "Invalid PIN",
+        message:
+          err?.response?.data?.message ||
           "The delivery PIN you entered is incorrect. Please check with the customer and try again.",
-      );
+        icon: "cancel",
+        destructive: true,
+      });
     }
   };
 

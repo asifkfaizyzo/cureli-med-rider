@@ -41,6 +41,28 @@ export const useAuthStore = create<AuthState>()(
           try {
             const { authApi } = require("../features/auth/api/auth.api");
             const updatedRider = await authApi.getMe();
+            
+            // ── Reconcile Operational Store & Raise Alert on Inactivity Offline ──
+            try {
+              const { useRiderOperationalStore } = require("./riderOperationalStore");
+              const localOnline = useRiderOperationalStore.getState().isOnline;
+              const serverOnline = updatedRider.is_online;
+
+              // Force synchronisation
+              useRiderOperationalStore.getState().syncFromProfile(serverOnline);
+
+              if (localOnline && !serverOnline) {
+                const { globalDialog } = require("../components/Dialog/DialogProvider");
+                globalDialog.alert({
+                  title: "Status Updated",
+                  message: "You were marked offline due to inactivity or lack of GPS signal.",
+                  icon: "cloud-off",
+                });
+              }
+            } catch (syncErr) {
+              console.error("[AuthStore] Failed to sync operational store on initialize:", syncErr);
+            }
+
             set({
               rider: updatedRider,
               status: "authenticated",
@@ -59,21 +81,42 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      setAuth: (rider, accessToken, refreshToken) =>
+      setAuth: (rider, accessToken, refreshToken) => {
+        // ── Direct Synchronization on successful Login / Verification ──
+        try {
+          const { useRiderOperationalStore } = require("./riderOperationalStore");
+          useRiderOperationalStore.getState().syncFromProfile(rider.is_online);
+        } catch (syncErr) {
+          console.error("[AuthStore] Failed to sync operational store on setAuth:", syncErr);
+        }
+
         set({
           rider,
           accessToken,
           refreshToken,
           tempToken: null,
           status: "authenticated",
-        }),
+        });
+      },
 
       setTempToken: (tempToken) => set({ tempToken }),
 
       updateRider: (partial) =>
-        set((state) => ({
-          rider: state.rider ? { ...state.rider, ...partial } : null,
-        })),
+        set((state) => {
+          const updatedRider = state.rider ? { ...state.rider, ...partial } : null;
+
+          // ── Reconcile operational store if online status changes ──
+          if (partial.is_online !== undefined) {
+            try {
+              const { useRiderOperationalStore } = require("./riderOperationalStore");
+              useRiderOperationalStore.getState().syncFromProfile(partial.is_online);
+            } catch (syncErr) {
+              console.error("[AuthStore] Failed to sync operational store on updateRider:", syncErr);
+            }
+          }
+
+          return { rider: updatedRider };
+        }),
 
       setAccessToken: (token) => set({ accessToken: token }),
 

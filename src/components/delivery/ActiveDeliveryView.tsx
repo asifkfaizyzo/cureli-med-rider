@@ -8,11 +8,11 @@ import {
   TouchableOpacity,
   Linking,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
 import { useDeliveryStore } from "../../store/deliveryStore";
 import { deliveryApi } from "../../features/delivery/api/delivery.api";
+import { useDialog } from "../Dialog/DialogProvider";
 import { OtpModal } from "./OtpModal";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -30,6 +30,7 @@ import { Ionicons } from "@expo/vector-icons";
  */
 export const ActiveDeliveryView: React.FC = () => {
   const { colors } = useTheme();
+  const dialog = useDialog();
   const delivery = useDeliveryStore((s) => s.activeDelivery);
   const setActiveDelivery = useDeliveryStore((s) => s.setActiveDelivery);
   const clearActiveDelivery = useDeliveryStore((s) => s.clearActiveDelivery);
@@ -47,7 +48,11 @@ export const ActiveDeliveryView: React.FC = () => {
     if (targetLat && targetLng) {
       Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${targetLat},${targetLng}`);
     } else {
-      Alert.alert("GPS Missing", "Location coordinates unavailable for this step.");
+      dialog.alert({
+        title: "GPS Missing",
+        message: "Location coordinates unavailable for this step.",
+        icon: "location-off",
+      });
     }
   };
 
@@ -61,7 +66,11 @@ export const ActiveDeliveryView: React.FC = () => {
       const updated = await deliveryApi.updateStatus(delivery.delivery_id, "ARRIVED_AT_CUSTOMER");
       setActiveDelivery(updated);
     } catch (err: any) {
-      Alert.alert("Error", err?.response?.data?.message || "Failed to update status");
+      dialog.alert({
+        title: "Error",
+        message: err?.response?.data?.message || "Failed to update status",
+        icon: "error-outline",
+      });
     } finally {
       setLoading(false);
     }
@@ -70,7 +79,11 @@ export const ActiveDeliveryView: React.FC = () => {
   const handleCompleteDelivery = async (otp: string) => {
     await deliveryApi.completeDelivery(delivery.delivery_id, otp);
     clearActiveDelivery();
-    Alert.alert("Order Delivered!", "Delivery completed successfully.");
+    dialog.alert({
+      title: "Order Delivered!",
+      message: "Delivery completed successfully.",
+      icon: "check-circle-outline",
+    });
   };
 
   return (

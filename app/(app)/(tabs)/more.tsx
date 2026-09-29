@@ -2,7 +2,7 @@
 
 import { router } from "expo-router";
 import React from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { useDialog } from "../../../src/components/Dialog/DialogProvider";
 import { RiderHeader } from "../../../src/components/home/RiderHeader";
 import { MoreActionButtons } from "../../../src/components/profile/MoreActionButtons";
@@ -31,10 +31,11 @@ export default function MoreScreen() {
   );
 
   const handleMenuPress = (label: string) => {
-    Alert.alert(
-      "Feature Coming Soon",
-      `"${label}" setup will be available in the next release.`,
-    );
+    alert({
+      title: "Feature Coming Soon",
+      message: `"${label}" setup will be available in the next release.`,
+      icon: "info-outline",
+    });
   };
 
   const handleLogoutPress = async () => {
@@ -97,11 +98,12 @@ export default function MoreScreen() {
   };
 
   const handleDeleteAccountPress = () => {
-    Alert.alert(
-      "Account Deletion Request",
-      "For security and compliance reasons, account deletion requests must be verified. Please contact administrator support at support@cureli.in to process your request.",
-      [{ text: "Okay", style: "default" }],
-    );
+    alert({
+      title: "Account Deletion Request",
+      message:
+        "For security and compliance reasons, account deletion requests must be verified. Please contact administrator support at info@curelihealth.com to process your request.",
+      icon: "info-outline",
+    });
   };
 
   // Group 1: My Account Menu Data
@@ -165,10 +167,12 @@ export default function MoreScreen() {
         collapsed={false}
         onHelpPress={() => handleMenuPress("Help Center")}
         onSOSPress={() =>
-          Alert.alert(
-            "SOS Triggered",
-            "Emergency support signal sent to operations desk.",
-          )
+          alert({
+            title: "SOS Triggered",
+            message: "Emergency support signal sent to operations desk.",
+            icon: "warning",
+            destructive: true,
+          })
         }
         onNotificationsPress={() => handleMenuPress("Notifications")}
         hasUnreadNotifications={false}
