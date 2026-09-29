@@ -143,7 +143,7 @@ export const LightColors: ColorPalette = {
 // ── Dark palette ──────────────────────────────────────────────
 export const DarkColors: ColorPalette = {
   brand: {
-    primary: "#6A20CD",      // Keep primary button solid purple
+    primary: "#8637ef",      // Keep primary button solid purple
     secondary: "#0C97B8",
     mid: "#B084EB",
     light: "#DFC7FF",

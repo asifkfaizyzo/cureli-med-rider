@@ -22,12 +22,36 @@ export function useSSEConnection() {
       connectSSE();
 
       // Listen for app state changes
-      const subscription = AppState.addEventListener(
+            const subscription = AppState.addEventListener(
         "change",
-        (nextAppState: AppStateStatus) => {
+        async (nextAppState: AppStateStatus) => {
           if (nextAppState === "active") {
             // Reconnect when app comes to foreground
             connectSSE();
+
+            // Re-sync online status from server — fixes stale MMKV toggle
+            // after the server offlines the rider (e.g., stale GPS cron)
+            try {
+              const { api } = await import("../services/api");
+              const res = await api.get<{
+                success: boolean;
+                data: { is_online: boolean };
+              }>("/rider/presence/status");
+              const serverOnline = res.data?.data?.is_online ?? false;
+              const { useRiderOperationalStore } = await import(
+                "../store/riderOperationalStore"
+              );
+              const localOnline =
+                useRiderOperationalStore.getState().isOnline;
+              if (localOnline !== serverOnline) {
+                useRiderOperationalStore
+                  .getState()
+                  .syncFromProfile(serverOnline);
+              }
+            } catch {
+              // Non-critical — if the sync fails, the toggle stays as-is.
+              // The next successful sync will correct it.
+            }
           } else if (nextAppState === "background") {
             // Disconnect when app goes to background (Phase 1)
             disconnectSSE();

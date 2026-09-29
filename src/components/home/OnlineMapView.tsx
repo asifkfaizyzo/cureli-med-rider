@@ -1,5 +1,5 @@
 // src/components/home/OnlineMapView.tsx (do not remove this comment)
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, View, Alert } from "react-native";
 import MapView, { Region, PROVIDER_GOOGLE, MapPressEvent } from "react-native-maps";
 import { useTheme } from "../../theme/ThemeContext";
@@ -12,8 +12,8 @@ import { RecenterButton } from "./RecenterButton";
 import { lightMapStyle, darkMapStyle } from "../../constants/mapStyle";
 
 const DEFAULT_REGION: Region = {
-  latitude: 12.9716,
-  longitude: 77.5946,
+  latitude: 9.9312,
+  longitude: 76.2673,
   latitudeDelta: 0.05,
   longitudeDelta: 0.05,
 };
@@ -50,6 +50,15 @@ export function OnlineMapView({ onUserInteract }: OnlineMapViewProps) {
     }
   }, [currentLocation, initialRegionSet, hasUserPanned]);
 
+  // FIX: this was previously called directly in the render body
+  // (`handleLocationUpdate();` with no useEffect wrapper), which fires a
+  // native camera animation + setState synchronously during render — an
+  // invalid side effect that can double-fire under React 18/Fabric and
+  // was contributing to the map "snapping"/flashing right after mount.
+  useEffect(() => {
+    handleLocationUpdate();
+  }, [handleLocationUpdate]);
+
   const handleRegionChangeComplete = () => {
     if (initialRegionSet) {
       setHasUserPanned(true);
@@ -76,8 +85,6 @@ export function OnlineMapView({ onUserInteract }: OnlineMapViewProps) {
       { text: "OK" },
     ]);
   };
-
-  handleLocationUpdate();
 
   const initialRegion = currentLocation
     ? {

@@ -1,15 +1,22 @@
 // src/components/delivery/PharmacyLegPanel.tsx (do not remove this comment)
 
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../../theme/ThemeContext";
-import { useDeliveryStore } from "../../store/deliveryStore";
+import React, { useState } from "react";
+import {
+  Alert,
+  Linking,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { deliveryApi } from "../../features/delivery/api/delivery.api";
 import { useProximity } from "../../hooks/useProximity";
+import { useDeliveryStore } from "../../store/deliveryStore";
+import { useTheme } from "../../theme/ThemeContext";
+import type { ActiveDelivery } from "../../types/delivery";
 import { GeofencedSlideToConfirm } from "./GeofencedSlideToConfirm";
 import { InlineOtpInput } from "./InlineOtpInput";
-import type { ActiveDelivery } from "../../types/delivery";
 
 const ARRIVAL_RADIUS_METERS = 30;
 
@@ -20,20 +27,6 @@ interface PharmacyLegPanelProps {
 /**
  * Real pharmacy-leg flow (Phase 3), replacing the placeholder for the
  * ACCEPTED / ARRIVED_AT_PHARMACY portion of ActiveDeliveryView.
- *
- * Flow:
- *  1. ACCEPTED        -> GPS-gated "Reached Pharmacy" slider (30m radius,
- *                         client-side only per current scope).
- *  2. ARRIVED_AT_PHARMACY + order not READY_FOR_PICKUP
- *                      -> waiting pill (unchanged from before).
- *  3. ARRIVED_AT_PHARMACY + READY_FOR_PICKUP
- *                      -> inline 4-digit OTP + "Confirm Pickup" slider,
- *                         gated on OTP being fully entered (not GPS —
- *                         rider is already confirmed at the pharmacy).
- *
- * On success of step 3, the parent's `delivery` prop updates to PICKED_UP
- * via setActiveDelivery(), which flips getDeliveryLeg() to CUSTOMER and
- * ActiveDeliveryScreen swaps this panel out automatically.
  */
 export function PharmacyLegPanel({ delivery }: PharmacyLegPanelProps) {
   const { colors } = useTheme();
@@ -63,7 +56,10 @@ export function PharmacyLegPanel({ delivery }: PharmacyLegPanelProps) {
         `https://www.google.com/maps/dir/?api=1&destination=${targetLat},${targetLng}`,
       );
     } else {
-      Alert.alert("GPS Missing", "Location coordinates unavailable for this step.");
+      Alert.alert(
+        "GPS Missing",
+        "Location coordinates unavailable for this step.",
+      );
     }
   };
 
@@ -79,14 +75,21 @@ export function PharmacyLegPanel({ delivery }: PharmacyLegPanelProps) {
       );
       setActiveDelivery(updated);
     } catch (err: any) {
-      Alert.alert("Error", err?.response?.data?.message || "Failed to update status");
+      Alert.alert(
+        "Error",
+        err?.response?.data?.message || "Failed to update status",
+      );
     }
   };
 
   const handleConfirmPickup = async () => {
     if (otp.length !== 4) return;
     try {
-      const updated = await deliveryApi.updateStatus(delivery.delivery_id, "PICKED_UP", otp);
+      const updated = await deliveryApi.updateStatus(
+        delivery.delivery_id,
+        "PICKED_UP",
+        otp,
+      );
       setActiveDelivery(updated);
       setOtp("");
       setOtpError(false);
@@ -111,39 +114,77 @@ export function PharmacyLegPanel({ delivery }: PharmacyLegPanelProps) {
   const arrivalDisabledHint = !hasTargetCoords
     ? "Pharmacy location unavailable"
     : distanceMeters == null
-    ? "Waiting for GPS signal..."
-    : `Get closer — ${distanceLabel}`;
+      ? "Waiting for GPS signal..."
+      : `Get closer — ${distanceLabel}`;
+
+  const shopDisplayName = delivery.pharmacy.shop_name || "Pharmacy";
+  const branchDisplayName = delivery.pharmacy.branch_name;
 
   return (
     <View style={styles.container}>
-      {/* Pharmacy Info */}
-      <View style={styles.infoSection}>
-        <View style={styles.titleRow}>
-          <Text
-            style={[styles.title, { color: colors.text.primary }]}
-            numberOfLines={1}
-          >
-            {delivery.pharmacy.shop_name || delivery.pharmacy.branch_name || "Pharmacy"}
-          </Text>
+      {/* Pharmacy Header Card */}
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.background.card,
+            borderColor: colors.border.subtle,
+          },
+        ]}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.titleBlock}>
+            <View style={styles.shopRow}>
+              <Ionicons
+                name="storefront"
+                size={20}
+                color={colors.brand.primary}
+                style={styles.shopIcon}
+              />
+              <Text
+                style={[styles.title, { color: colors.text.primary }]}
+                numberOfLines={1}
+              >
+                {shopDisplayName}
+              </Text>
+            </View>
+
+            {branchDisplayName ? (
+              <View
+                style={[
+                  styles.branchBadge,
+                  { backgroundColor: colors.background.tint },
+                ]}
+              >
+                <Text
+                  style={[styles.branchText, { color: colors.text.secondary }]}
+                >
+                  {branchDisplayName}
+                </Text>
+              </View>
+            ) : null}
+          </View>
 
           {distanceLabel && !isAtPharmacy && (
-            <View style={[styles.distancePill, { backgroundColor: colors.brand.light }]}>
-              <Ionicons name="navigate" size={11} color={colors.brand.primary} />
-              <Text style={[styles.distanceText, { color: colors.brand.primary }]}>
+            <View
+              style={[
+                styles.distancePill,
+                { backgroundColor: colors.brand.light },
+              ]}
+            >
+              <Ionicons
+                name="navigate-circle"
+                size={13}
+                color={colors.brand.primary}
+              />
+              <Text
+                style={[styles.distanceText, { color: colors.brand.primary }]}
+              >
                 {distanceLabel}
               </Text>
             </View>
           )}
         </View>
-
-        {delivery.pharmacy.branch_name && delivery.pharmacy.shop_name ? (
-          <Text
-            style={[styles.branchName, { color: colors.text.muted }]}
-            numberOfLines={1}
-          >
-            {delivery.pharmacy.branch_name}
-          </Text>
-        ) : null}
 
         <Text
           style={[styles.address, { color: colors.text.muted }]}
@@ -151,77 +192,159 @@ export function PharmacyLegPanel({ delivery }: PharmacyLegPanelProps) {
         >
           {delivery.pharmacy.address || "Address unavailable"}
         </Text>
-      </View>
 
-      {/* Quick Actions */}
-      <View style={styles.quickButtons}>
-        <TouchableOpacity
-          onPress={openNavigation}
-          style={[styles.quickBtn, { backgroundColor: colors.background.tint }]}
-        >
-          <Ionicons name="navigate" size={16} color={colors.brand.primary} />
-          <Text style={[styles.quickBtnText, { color: colors.brand.primary }]}>
-            Navigate
-          </Text>
-        </TouchableOpacity>
-
-        {contactPhone && (
+        {/* Action Buttons Row */}
+        <View style={styles.actionRow}>
           <TouchableOpacity
-            onPress={callContact}
-            style={[styles.quickBtn, { backgroundColor: colors.background.tint }]}
+            onPress={openNavigation}
+            activeOpacity={0.7}
+            style={[styles.actionBtn, { backgroundColor: colors.brand.light }]}
           >
-            <Ionicons name="call" size={16} color={colors.brand.primary} />
-            <Text style={[styles.quickBtnText, { color: colors.brand.primary }]}>
-              Call
+            <Ionicons name="map" size={16} color={colors.brand.primary} />
+            <Text
+              style={[styles.actionBtnText, { color: colors.brand.primary }]}
+            >
+              Navigate Maps
             </Text>
           </TouchableOpacity>
-        )}
+
+          {contactPhone && (
+            <TouchableOpacity
+              onPress={callContact}
+              activeOpacity={0.7}
+              style={[
+                styles.actionBtn,
+                { backgroundColor: colors.background.tint },
+              ]}
+            >
+              <Ionicons name="call" size={16} color={colors.text.primary} />
+              <Text
+                style={[styles.actionBtnText, { color: colors.text.primary }]}
+              >
+                Call Pharmacy
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {/* Action Area */}
+      {/* Dynamic Progress/Action Area */}
       <View style={styles.actionArea}>
         {isAwaitingArrival && (
-          <GeofencedSlideToConfirm
-            label="Reached Pharmacy Location"
-            busyLabel="Confirming arrival..."
-            disabled={!isWithinRange}
-            disabledHint={arrivalDisabledHint}
-            onConfirm={handleConfirmArrival}
-            icon="checkmark"
-          />
+          <View style={styles.interactiveActionBlock}>
+            <View style={styles.sectionHeader}>
+              <Ionicons
+                name="location-outline"
+                size={16}
+                color={colors.text.muted}
+              />
+              <Text
+                style={[
+                  styles.sectionHeaderText,
+                  { color: colors.text.secondary },
+                ]}
+              >
+                STEP 1: CONFIRM ARRIVAL
+              </Text>
+            </View>
+            <GeofencedSlideToConfirm
+              label="Reached Pharmacy Location"
+              busyLabel="Confirming arrival..."
+              disabled={!isWithinRange}
+              disabledHint={arrivalDisabledHint}
+              onConfirm={handleConfirmArrival}
+              icon="checkmark-circle"
+            />
+          </View>
         )}
 
         {isAtPharmacy && !isShopReady && (
-          <View style={[styles.waitingPill, { backgroundColor: colors.status.warningBg }]}>
-            <Ionicons name="time" size={16} color={colors.status.warning} />
-            <Text style={[styles.waitingText, { color: colors.status.warning }]}>
-              Pharmacy is packing your order. Awaiting ready status...
+          <View
+            style={[
+              styles.waitingCard,
+              {
+                backgroundColor: colors.status.warningBg,
+                borderColor: colors.status.warning,
+              },
+            ]}
+          >
+            <View style={styles.waitingHeader}>
+              <Ionicons
+                name="hourglass-outline"
+                size={20}
+                color={colors.status.warning}
+                style={styles.spinIcon}
+              />
+              <Text
+                style={[styles.waitingTitle, { color: colors.status.warning }]}
+              >
+                Preparing Order
+              </Text>
+            </View>
+            <Text
+              style={[styles.waitingText, { color: colors.text.secondary }]}
+            >
+              The pharmacist is packing your items. We will update you here as
+              soon as they are ready for pickup.
             </Text>
           </View>
         )}
 
         {isAtPharmacy && isShopReady && (
-          <View style={styles.pickupSection}>
+          <View
+            style={[
+              styles.pickupCard,
+              {
+                backgroundColor: colors.background.card,
+                borderColor: colors.border.subtle,
+              },
+            ]}
+          >
+            <View style={styles.pickupHeader}>
+              <View
+                style={[
+                  styles.secureBadge,
+                  { backgroundColor: colors.status.successBg },
+                ]}
+              >
+                <Ionicons
+                  name="shield-checkmark"
+                  size={14}
+                  color={colors.status.success}
+                />
+                <Text
+                  style={[
+                    styles.secureBadgeText,
+                    { color: colors.status.success },
+                  ]}
+                >
+                  READY FOR PICKUP
+                </Text>
+              </View>
+            </View>
+
             <Text style={[styles.otpLabel, { color: colors.text.secondary }]}>
-              Enter the 4-digit Pickup PIN from the pharmacy
+              Ask the pharmacist for the 4-digit verification PIN:
             </Text>
 
-            <InlineOtpInput
-              value={otp}
-              onChange={(v) => {
-                setOtp(v);
-                setOtpError(false);
-              }}
-              error={otpError}
-            />
+            <View style={styles.otpWrapper}>
+              <InlineOtpInput
+                value={otp}
+                onChange={(v) => {
+                  setOtp(v);
+                  setOtpError(false);
+                }}
+                error={otpError}
+              />
+            </View>
 
-            <View style={{ height: 14 }} />
+            <View style={styles.pickupSliderSpacer} />
 
             <GeofencedSlideToConfirm
               label="Slide to confirm pickup"
               busyLabel="Verifying PIN..."
               disabled={otp.length !== 4}
-              disabledHint="Enter the 4-digit PIN above"
+              disabledHint="Enter the PIN above"
               onConfirm={handleConfirmPickup}
               color={colors.status.success}
               icon="cube"
@@ -234,51 +357,177 @@ export function PharmacyLegPanel({ delivery }: PharmacyLegPanelProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "space-between" },
-  infoSection: { marginTop: 4 },
-  titleRow: {
+  container: {
+    flex: 1,
+    justifyContent: "space-between",
+  },
+  card: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    marginBottom: 12,
+  },
+  cardHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 8,
   },
-  title: { flex: 1, fontSize: 16, fontWeight: "800" },
-  branchName: { fontSize: 12, fontWeight: "700", marginTop: 2 },
-  address: { fontSize: 12, marginTop: 4, lineHeight: 16 },
+  titleBlock: {
+    flex: 1,
+    gap: 4,
+  },
+  shopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  shopIcon: {
+    marginTop: -1,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+  },
+  branchBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  branchText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
   distancePill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 8,
   },
-  distanceText: { fontSize: 11, fontWeight: "800" },
-  quickButtons: { flexDirection: "row", gap: 8, marginVertical: 12 },
-  quickBtn: {
+  distanceText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  address: {
+    fontSize: 13,
+    marginTop: 8,
+    lineHeight: 18,
+  },
+  actionRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
+    gap: 8,
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.03)",
+    paddingTop: 14,
   },
-  quickBtnText: { fontSize: 12, fontWeight: "700" },
-  actionArea: { marginTop: 4 },
-  pickupSection: { width: "100%" },
-  otpLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 12,
-  },
-  waitingPill: {
+  actionBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    padding: 12,
+    height: 38,
+    borderRadius: 10,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  actionArea: {
+    marginTop: 4,
+  },
+  interactiveActionBlock: {
+    gap: 8,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingLeft: 4,
+    marginBottom: 2,
+  },
+  sectionHeaderText: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+  },
+  waitingCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  waitingHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  spinIcon: {
+    alignSelf: "center",
+  },
+  waitingTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  waitingText: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 17,
+    paddingHorizontal: 10,
+  },
+  pickupCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  pickupHeader: {
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  secureBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 12,
   },
-  waitingText: { fontSize: 12, fontWeight: "700", textAlign: "center" },
+  secureBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  otpLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 14,
+    lineHeight: 18,
+  },
+  otpWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  pickupSliderSpacer: {
+    height: 16,
+  },
 });

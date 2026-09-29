@@ -17,18 +17,29 @@ import {
 import { deliveryApi } from "../../features/delivery/api/delivery.api";
 import { useDeliveryStore } from "../../store/deliveryStore";
 import { useTheme } from "../../theme/ThemeContext";
+import { useDialog } from "../Dialog/DialogProvider";
 
-const TIMEOUT_SECONDS = 45;
 const THUMB_SIZE = 54;
-const LOW_TIME_THRESHOLD = 10;
+
+/**
+ * Format elapsed seconds into "Xm Ys" display string.
+ */
+function formatElapsed(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  if (m === 0) return `${s}s`;
+  return `${m}m ${s}s`;
+}
 
 export const IncomingOrderOverlay: React.FC = () => {
   const { colors } = useTheme();
-  const alert = useDeliveryStore((s) => s.incomingAlert);
+  const dialog = useDialog();
+  const incomingAlert = useDeliveryStore((s) => s.incomingAlert);
   const clearAlert = useDeliveryStore((s) => s.clearAlert);
   const setActiveDelivery = useDeliveryStore((s) => s.setActiveDelivery);
 
-  const [timeLeft, setTimeLeft] = useState(TIMEOUT_SECONDS);
+  // ── Elapsed timer (informational only — no auto-action) ──────────────
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isAccepting, setIsAccepting] = useState(false);
   const [isDeclining, setIsDeclining] = useState(false);
   const [, setTrackWidth] = useState(0);
@@ -37,20 +48,20 @@ export const IncomingOrderOverlay: React.FC = () => {
   const slideX = useRef(new Animated.Value(0)).current;
   const maxSlideRef = useRef(0);
 
-  // Pulse animation for bicycle icon
+  // ── Energetic breathing pulse animation for the "NEW ORDER" banner ──
   useEffect(() => {
-    if (!alert) return;
+    if (!incomingAlert) return;
 
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.06,
-          duration: 700,
+          toValue: 1.05,
+          duration: 650,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 700,
+          duration: 650,
           useNativeDriver: true,
         }),
       ]),
@@ -58,10 +69,25 @@ export const IncomingOrderOverlay: React.FC = () => {
     pulse.start();
 
     return () => pulse.stop();
-  }, [alert, pulseAnim]);
+  }, [incomingAlert, pulseAnim]);
 
+  // ── Elapsed timer: counts UP from 0 (no auto-decline) ────────────────
+  useEffect(() => {
+    if (!incomingAlert) return;
+
+    setElapsedSeconds(0);
+    slideX.setValue(0);
+
+    const interval = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [incomingAlert]);
+
+  // ── Accept handler ────────────────────────────────────────────────────
   const handleAccept = async () => {
-    if (!alert || isAccepting) return;
+    if (!incomingAlert || isAccepting) return;
     setIsAccepting(true);
 
     try {
@@ -69,23 +95,55 @@ export const IncomingOrderOverlay: React.FC = () => {
     } catch {}
 
     try {
-      const active = await deliveryApi.acceptDelivery(alert.delivery_id);
+      const active = await deliveryApi.acceptDelivery(incomingAlert.delivery_id);
       setActiveDelivery(active);
-    } catch {
-      clearAlert();
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Could not accept this order. Please try again.";
+      await dialog.alert({
+        title: "Accept Failed",
+        message,
+        destructive: true,
+        icon: "error-outline",
+      });
     } finally {
       setIsAccepting(false);
       slideX.setValue(0);
     }
   };
 
+  // ── Decline handler ───────────────────────────────────────────────────
   const handleDecline = async (reason = "Rider declined") => {
-    if (!alert || isDeclining) return;
-    setIsDeclining(true);
+    if (!incomingAlert || isDeclining) return;
 
+    // Confirm before declining with DialogProvider
+    const confirmed = await dialog.confirm({
+      title: "Decline Order?",
+      message: "Are you sure you want to decline this delivery?",
+      confirmLabel: "Decline",
+      cancelLabel: "Cancel",
+      destructive: true,
+      icon: "warning",
+    });
+
+    if (!confirmed) return;
+
+    setIsDeclining(true);
     try {
-      await deliveryApi.declineDelivery(alert.delivery_id, reason);
-    } catch {
+      await deliveryApi.declineDelivery(incomingAlert.delivery_id, reason);
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to decline. Please try again.";
+      await dialog.alert({
+        title: "Decline Failed",
+        message,
+        destructive: true,
+        icon: "error-outline",
+      });
     } finally {
       clearAlert();
       setIsDeclining(false);
@@ -93,10 +151,7 @@ export const IncomingOrderOverlay: React.FC = () => {
     }
   };
 
-  // ── Keep refs pointing to the LATEST handlers ──
-  // Fixes the bug where PanResponder (created once via useRef) was
-  // permanently holding onto the first render's stale `alert`/handlers,
-  // so sliding to accept silently did nothing after the first mount.
+  // ── Keep refs pointing to the LATEST handlers ─────────────────────────
   const handleAcceptRef = useRef(handleAccept);
   const handleDeclineRef = useRef(handleDecline);
   const isBusyRef = useRef(false);
@@ -107,28 +162,7 @@ export const IncomingOrderOverlay: React.FC = () => {
     isBusyRef.current = isAccepting || isDeclining;
   });
 
-  // 45s countdown timer
-  useEffect(() => {
-    if (!alert) return;
-
-    setTimeLeft(TIMEOUT_SECONDS);
-    slideX.setValue(0);
-
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          handleDeclineRef.current("TIMEOUT");
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [alert]);
-
-  // Pan Responder for Slide to Accept
+  // ── Pan Responder for Slide to Accept ─────────────────────────────────
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => !isBusyRef.current,
@@ -143,7 +177,6 @@ export const IncomingOrderOverlay: React.FC = () => {
       onPanResponderRelease: (_, gestureState) => {
         const max = maxSlideRef.current;
         if (max > 0 && gestureState.dx >= max * 0.72) {
-          // Snap to end & trigger accept
           Animated.timing(slideX, {
             toValue: max,
             duration: 150,
@@ -152,7 +185,6 @@ export const IncomingOrderOverlay: React.FC = () => {
             handleAcceptRef.current();
           });
         } else {
-          // Snap back
           Animated.spring(slideX, {
             toValue: 0,
             useNativeDriver: true,
@@ -169,12 +201,11 @@ export const IncomingOrderOverlay: React.FC = () => {
     maxSlideRef.current = Math.max(0, width - THUMB_SIZE - 8);
   };
 
-  if (!alert) return null;
+  if (!incomingAlert) return null;
 
-  const progressPercent = (timeLeft / TIMEOUT_SECONDS) * 100;
-  const isUrgent = timeLeft <= LOW_TIME_THRESHOLD;
-  const shopDisplayName = alert.shop_name || alert.pharmacy_name || "Pharmacy";
-  const branchDisplayName = alert.branch_name;
+  const shopDisplayName =
+    incomingAlert.shop_name || incomingAlert.pharmacy_name || "Pharmacy";
+  const branchDisplayName = incomingAlert.branch_name;
 
   return (
     <Modal visible={true} transparent={true} animationType="slide">
@@ -188,149 +219,100 @@ export const IncomingOrderOverlay: React.FC = () => {
             },
           ]}
         >
-          {/* Header Progress Bar */}
-          <View
-            style={[
-              styles.progressBarBackground,
-              { backgroundColor: colors.border.subtle },
-            ]}
-          >
-            <View
-              style={[
-                styles.progressBarFill,
-                {
-                  width: `${progressPercent}%`,
-                  backgroundColor: isUrgent
-                    ? colors.status.error
-                    : colors.brand.primary,
-                },
-              ]}
-            />
-          </View>
-
-          {/* Top Bar: Tag & Timer */}
+          {/* Top Bar: Live Timer & Red Deny button */}
           <View style={styles.topRow}>
-            <View style={[styles.tag, { backgroundColor: colors.brand.light }]}>
-              <Ionicons name="flash" size={13} color={colors.brand.primary} />
-              <Text style={[styles.tagText, { color: colors.brand.primary }]}>
-                NEW ORDER ASSIGNED
-              </Text>
-            </View>
-
             <View
               style={[
                 styles.timerBadge,
-                {
-                  backgroundColor: isUrgent
-                    ? colors.status.errorBg
-                    : colors.background.tint,
-                },
+                { backgroundColor: colors.background.tint },
               ]}
             >
               <Ionicons
                 name="time-outline"
                 size={13}
-                color={isUrgent ? colors.status.error : colors.text.secondary}
+                color={colors.text.secondary}
               />
               <Text
-                style={[
-                  styles.timerText,
-                  {
-                    color: isUrgent
-                      ? colors.status.error
-                      : colors.text.secondary,
-                  },
-                ]}
+                style={[styles.timerText, { color: colors.text.secondary }]}
               >
-                {timeLeft}s
+                {formatElapsed(elapsedSeconds)}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => handleDecline("Rider declined")}
+              disabled={isDeclining || isAccepting}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.denyButton}
+              activeOpacity={0.7}
+            >
+              {isDeclining ? (
+                <ActivityIndicator size="small" color={colors.status.error} />
+              ) : (
+                <View style={styles.denyContent}>
+                  <Text style={[styles.denyText, { color: colors.status.error }]}>Deny</Text>
+                  <Ionicons name="close" size={16} color={colors.status.error} />
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* MAIN HERO ACTION HEADER (Pulsing dynamically) */}
+          <Animated.View style={[styles.heroContainer, { transform: [{ scale: pulseAnim }] }]}>
+            <Text style={[styles.heroTitle, { color: colors.brand.mid }]}>
+              NEW ORDER
+            </Text>
+          </Animated.View>
+
+          {/* Order ID detail */}
+          <Text style={[styles.orderNumber, { color: colors.text.muted }]}>
+            #{incomingAlert.order_number}
+          </Text>
+
+          <View style={[styles.divider, { backgroundColor: colors.border.subtle }]} />
+
+          {/* Equal hierarchy: Shop + Distance side by side */}
+          <View style={styles.infoRow}>
+            <View style={styles.infoCol}>
+              <Ionicons name="storefront-outline" size={16} color={colors.text.muted} />
+              <Text style={[styles.infoLabel, { color: colors.text.muted }]}>PICKUP</Text>
+              <Text style={[styles.infoValue, { color: colors.text.primary }]} numberOfLines={1}>
+                {shopDisplayName}
+              </Text>
+              {branchDisplayName ? (
+                <Text style={[styles.infoSub, { color: colors.text.secondary }]} numberOfLines={1}>
+                  {branchDisplayName}
+                </Text>
+              ) : null}
+            </View>
+
+            <View style={[styles.infoDivider, { backgroundColor: colors.border.subtle }]} />
+
+            <View style={styles.infoCol}>
+              <Ionicons name="navigate-outline" size={16} color={colors.text.muted} />
+              <Text style={[styles.infoLabel, { color: colors.text.muted }]}>DISTANCE</Text>
+              <Text style={[styles.infoValue, { color: colors.text.primary }]} numberOfLines={1}>
+                {incomingAlert.estimated_distance_km != null
+                  ? `${incomingAlert.estimated_distance_km} km`
+                  : "Nearby"}
+              </Text>
+              <Text style={[styles.infoSub, { color: colors.text.secondary }]} numberOfLines={1}>
+                to pickup
               </Text>
             </View>
           </View>
 
-          {/* Animated Icon Badge */}
-          <Animated.View
-            style={[
-              styles.iconWrapper,
-              {
-                backgroundColor: colors.brand.light,
-                transform: [{ scale: pulseAnim }],
-              },
-            ]}
-          >
-            <View
-              style={[
-                styles.iconWrapperInner,
-                { backgroundColor: colors.brand.soft },
-              ]}
-            >
-              <Ionicons name="bicycle" size={34} color={colors.brand.primary} />
-            </View>
-          </Animated.View>
-
-          {/* Order Number */}
-          <Text style={[styles.orderNumber, { color: colors.text.muted }]}>
-            ORDER #{alert.order_number}
-          </Text>
-
-          {/* Pharmacy Brand & Branch Hierarchy */}
-          <View style={styles.pharmacyContainer}>
-            <Text
-              style={[styles.shopName, { color: colors.text.primary }]}
-              numberOfLines={2}
-            >
-              {shopDisplayName}
-            </Text>
-
-            {branchDisplayName ? (
-              <View
-                style={[
-                  styles.branchBadge,
-                  { backgroundColor: colors.background.tint },
-                ]}
-              >
-                <Ionicons
-                  name="storefront-outline"
-                  size={12}
-                  color={colors.brand.primary}
-                />
-                <Text
-                  style={[styles.branchName, { color: colors.brand.primary }]}
-                  numberOfLines={1}
-                >
-                  {branchDisplayName}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
           {/* Full Pharmacy Address */}
-          {alert.pharmacy_address ? (
+          {incomingAlert.pharmacy_address ? (
             <Text
               style={[styles.pharmacyAddress, { color: colors.text.muted }]}
               numberOfLines={2}
             >
-              {alert.pharmacy_address}
+              {incomingAlert.pharmacy_address}
             </Text>
           ) : null}
 
-          {/* Distance Indicator Pill */}
-          <View
-            style={[
-              styles.distancePill,
-              { backgroundColor: colors.brand.light },
-            ]}
-          >
-            <Ionicons name="navigate" size={14} color={colors.brand.primary} />
-            <Text
-              style={[styles.distanceText, { color: colors.brand.primary }]}
-            >
-              {alert.estimated_distance_km != null
-                ? `${alert.estimated_distance_km} km to pickup`
-                : "Nearby pickup point"}
-            </Text>
-          </View>
-
-          {/* ── Slide-to-Accept Slider & Decline Bar ── */}
+          {/* ── Slide-to-Accept Slider ── */}
           <View style={styles.actionContainer}>
             <View
               onLayout={onTrackLayout}
@@ -383,23 +365,6 @@ export const IncomingOrderOverlay: React.FC = () => {
                 )}
               </Animated.View>
             </View>
-
-            <TouchableOpacity
-              onPress={() => handleDecline("Rider declined")}
-              disabled={isDeclining || isAccepting}
-              style={styles.declineButton}
-              activeOpacity={0.7}
-            >
-              {isDeclining ? (
-                <ActivityIndicator size="small" color={colors.status.error} />
-              ) : (
-                <Text
-                  style={[styles.declineText, { color: colors.status.error }]}
-                >
-                  Decline this order
-                </Text>
-              )}
-            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -417,8 +382,8 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     borderWidth: 1,
     paddingHorizontal: 22,
-    paddingTop: 24,
-    paddingBottom: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
     alignItems: "center",
     overflow: "hidden",
     shadowColor: "#000",
@@ -427,35 +392,12 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
   },
-  progressBarBackground: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 5,
-  },
-  progressBarFill: {
-    height: "100%",
-  },
   topRow: {
     width: "100%",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
-  },
-  tag: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  tagText: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.6,
+    marginBottom: 4,
   },
   timerBadge: {
     flexDirection: "row",
@@ -470,77 +412,86 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     fontVariant: ["tabular-nums"],
   },
-  iconWrapper: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 8,
-    marginBottom: 10,
+  denyButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
-  iconWrapperInner: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    justifyContent: "center",
+  denyContent: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 2,
+  },
+  denyText: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  heroContainer: {
+    marginTop: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroTitle: {
+    fontSize: 38,
+    fontWeight: "900",
+    letterSpacing: -1,
+    textAlign: "center",
   },
   orderNumber: {
     fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.8,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    marginTop: 4,
   },
-  pharmacyContainer: {
-    alignItems: "center",
-    marginTop: 6,
+  divider: {
+    height: 1,
     width: "100%",
-    paddingHorizontal: 12,
+    marginVertical: 16,
   },
-  shopName: {
-    fontSize: 20,
+  infoRow: {
+    flexDirection: "row",
+    width: "100%",
+    alignItems: "stretch",
+    marginBottom: 8,
+  },
+  infoCol: {
+    flex: 1,
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 4,
+  },
+  infoDivider: {
+    width: 1,
+    marginVertical: 4,
+  },
+  infoLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
+    marginTop: 4,
+  },
+  infoValue: {
+    fontSize: 16,
     fontWeight: "900",
     textAlign: "center",
-    letterSpacing: -0.3,
+    marginTop: 2,
   },
-  branchBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 6,
-  },
-  branchName: {
-    fontSize: 12,
-    fontWeight: "700",
+  infoSub: {
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
   },
   pharmacyAddress: {
     fontSize: 12,
     textAlign: "center",
     marginTop: 8,
+    marginBottom: 20,
     paddingHorizontal: 14,
     lineHeight: 16,
-  },
-  distancePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 12,
-    marginTop: 14,
-    marginBottom: 20,
-  },
-  distanceText: {
-    fontSize: 13,
-    fontWeight: "800",
   },
   actionContainer: {
     width: "100%",
     alignItems: "center",
-    gap: 12,
   },
   slideTrack: {
     width: "100%",
@@ -570,13 +521,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
-  },
-  declineButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-  },
-  declineText: {
-    fontSize: 13,
-    fontWeight: "700",
   },
 });

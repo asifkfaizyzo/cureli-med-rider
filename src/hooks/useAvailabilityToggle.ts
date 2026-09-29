@@ -1,5 +1,5 @@
 // src/hooks/useAvailabilityToggle.ts (do not remove this comment)
-//src\hooks\useAvailabilityToggle.ts
+import { Alert } from "react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { homeApi } from "../features/home/api/home.api";
 import { useRiderOperationalStore } from "../store/riderOperationalStore";
@@ -39,13 +39,29 @@ export function useAvailabilityToggle() {
         setActiveDelivery(data.active_delivery_id);
       }
       updateRider({ is_online: data.is_online });
-      
+
       // Invalidate dashboard on status change
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
 
     onError: (error: any) => {
-      console.error("[AvailabilityToggle] Error:", error.response?.data || error.message);
+      console.error("[AvailabilityToggle] Error:", error?.response?.data || error?.message);
+
+      const code = error?.response?.data?.code || error?.code;
+      const message = error?.response?.data?.message || error?.message;
+
+      if (code === "ACTIVE_DELIVERY") {
+        // ── Surface descriptive error explaining the active state lock ───────
+        Alert.alert(
+          "Status Locked",
+          message || "You cannot go offline while you have an active delivery."
+        );
+      } else {
+        Alert.alert(
+          "Connection Error",
+          message || "Could not reach server. Please check your network and try again."
+        );
+      }
     },
 
     onSettled: () => {
