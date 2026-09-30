@@ -113,8 +113,8 @@ export default function RootLayout() {
               <Stack.Screen name="(app)" />
             </Stack>
 
-            <GlobalThemeToggle />
-            <DevLocationOverride />
+            {/* <GlobalThemeToggle />
+            <DevLocationOverride /> */}
           </DialogProvider>
         </ThemeProvider>
       </QueryClientProvider>
