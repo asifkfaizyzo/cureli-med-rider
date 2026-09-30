@@ -8,29 +8,14 @@ const GOOGLE_MAPS_KEY =
 export default {
   expo: {
     owner: "your-zeros-and-ones",
-    name: "Cureli Delivery Partner",
-    slug: "cureli-rider-app",
+    name: "Cureli Rider",
+    slug: "cureli-rider",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "cureli-rider",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
-    ios: {
-      supportsTablet: false,
-      bundleIdentifier: "in.cureli.delivery",
-      buildNumber: "1",
-      infoPlist: {
-        ITSAppUsesNonExemptEncryption: false,
-        NSLocationWhenInUseUsageDescription:
-          "Cureli Delivery needs your location for navigation and tracking deliveries.",
-        NSLocationAlwaysAndWhenInUseUsageDescription:
-          "Cureli Delivery needs your location for navigation and tracking deliveries.",
-      },
-      config: {
-        googleMapsApiKey: GOOGLE_MAPS_KEY,
-      },
-    },
     android: {
       adaptiveIcon: {
         backgroundColor: "#090025",
@@ -39,9 +24,10 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "in.cureli.delivery",
+      package: "com.cureli.rider",
       versionCode: 1,
       permissions: [
+        "android.permission.CAMERA",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
@@ -79,8 +65,7 @@ export default {
         "expo-location",
         {
           locationWhenInUsePermission:
-            "Cureli Delivery needs your location for navigation and tracking deliveries.",
-          isIosBackgroundLocationEnabled: true,
+            "Cureli Rider needs your location for navigation and tracking deliveries.",
           isAndroidBackgroundLocationEnabled: true,
           isAndroidForegroundServiceEnabled: true,
         },
