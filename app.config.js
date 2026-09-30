@@ -1,11 +1,11 @@
-import "dotenv/config";
+require("dotenv").config();
 
 const GOOGLE_MAPS_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ||
   process.env.GOOGLE_MAPS_API_KEY ||
   "";
 
-export default {
+module.exports = {
   expo: {
     owner: "your-zeros-and-ones",
     name: "Cureli Rider",
@@ -70,7 +70,6 @@ export default {
           isAndroidForegroundServiceEnabled: true,
         },
       ],
-      "expo-task-manager",
       [
         "expo-notifications",
         {
@@ -99,7 +98,7 @@ export default {
     extra: {
       router: {},
       eas: {
-        projectId: "",
+        projectId: "ae3f3780-a476-4663-8544-4ce6015fd02d",
       },
     },
   },
