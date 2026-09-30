@@ -34,7 +34,7 @@ export function useSSEConnection() {
               const res = await api.get<{
                 success: boolean;
                 data: { is_online: boolean };
-              }>("/rider/presence/status");
+              }>("/rider/status");
 
               const serverOnline = res.data?.data?.is_online ?? false;
 
