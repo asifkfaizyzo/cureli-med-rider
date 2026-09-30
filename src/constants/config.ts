@@ -10,6 +10,6 @@
 
 export const CONFIG = {
   // BASE_URL: "https://api.curelihealth.com", // ← hardcoded for this build
-  BASE_URL: "https://api.curelihealth.com",  // ← uncomment for local dev
+  BASE_URL: "http://localhost:5000",  // ← uncomment for local dev
   API_TIMEOUT: 15000,
 };

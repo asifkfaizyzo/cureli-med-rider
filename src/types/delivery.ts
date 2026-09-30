@@ -82,3 +82,109 @@ export interface ActiveDelivery {
     delivered_at: string | null;
   };
 }
+
+export type HistoryStatusFilter = "DELIVERED" | "FAILED" | "CANCELLED";
+
+export interface DeliveryHistoryItem {
+  delivery_id: string;
+  order_id: string;
+  order_number: string;
+  status: DeliveryStatus;
+  pharmacy_name: string | null;
+  branch_name: string | null;
+  customer_name: string | null;
+  total_amount: number;
+  payment_method: string;
+  item_count: number;
+  total_rider_earning: number;
+  tip_amount: number;
+  total_distance_km: number;
+  failure_reason: string | null;
+  delivered_at: string | null;
+  failed_at: string | null;
+  created_at: string;
+}
+
+export interface DeliveryHistoryPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface DeliveryHistoryListResponse {
+  deliveries: DeliveryHistoryItem[];
+  pagination: DeliveryHistoryPagination;
+}
+
+export interface DeliveryHistoryFilters {
+  page?: number;
+  limit?: number;
+  status?: HistoryStatusFilter[];
+  from_date?: string;
+  to_date?: string;
+}
+
+export interface DeliveryHistoryDetailItem {
+  item_id: string;
+  medicine_name: string;
+  brand: string | null;
+  pack_size: string | null;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+}
+
+export interface DeliveryHistoryDetail {
+  delivery_id: string;
+  order_id: string;
+  order_number: string;
+  status: DeliveryStatus;
+  payment_method: string;
+  order_total: number;
+  pharmacy: {
+    shop_name: string | null;
+    branch_name: string | null;
+    contact_number: string | null;
+    address: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  };
+  customer: {
+    name: string | null;
+    phone: string | null;
+    address_line_1: string | null;
+    address_line_2: string | null;
+    landmark: string | null;
+    city: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  };
+  items: DeliveryHistoryDetailItem[];
+  earnings: {
+    pickup_fee: number;
+    drop_fee: number;
+    surge_fee: number;
+    floor_topup_fee: number;
+    tip_amount: number;
+    total_earning: number;
+  };
+  distances: {
+    pickup_km: number;
+    drop_km: number;
+    total_km: number;
+  };
+  timestamps: {
+    assigned_at: string | null;
+    accepted_at: string | null;
+    arrived_at_pharmacy_at: string | null;
+    picked_up_at: string | null;
+    arrived_at_customer_at: string | null;
+    delivered_at: string | null;
+    failed_at: string | null;
+  };
+  failure_reason: string | null;
+  failure_note: string | null;
+  rating: { stars: number; created_at: string } | null;
+  created_at: string;
+}

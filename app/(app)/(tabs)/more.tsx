@@ -118,26 +118,31 @@ export default function MoreScreen() {
       icon: "document-text-outline",
       onPress: () => router.push("/(app)/documents"),
     },
+    // {
+    //   label: "Notifications",
+    //   icon: "notifications-outline",
+    //   onPress: () => handleMenuPress("Notifications"),
+    // },
     {
-      label: "Delivery History",
-      icon: "receipt-outline",
-      onPress: () => handleMenuPress("Delivery History"),
-    },
-    {
-      label: "Notifications",
-      icon: "notifications-outline",
-      onPress: () => handleMenuPress("Notifications"),
-    },
-    {
-      label: "KYC & Bank",
+      label: "Wallet & Banking",
       icon: "card-outline",
       onPress: () => handleMenuPress("KYC & Bank"),
     },
     {
-      label: "Training",
-      icon: "school-outline",
-      onPress: () => handleMenuPress("Training"),
+      label: "Delivery History",
+      icon: "receipt-outline",
+      onPress: () => router.push("/(app)/delivery-history"),
     },
+    {
+      label: "Theme & Colors",
+      icon: "color-palette-outline",
+      onPress: () => router.push("/(app)/theme"),
+    },
+    // {
+    //   label: "Training",
+    //   icon: "school-outline",
+    //   onPress: () => handleMenuPress("Training"),
+    // },
   ];
 
   // Group 2: Support & Legal Menu Data
@@ -150,12 +155,12 @@ export default function MoreScreen() {
     {
       label: "Terms & Conditions",
       icon: "document-lock-outline",
-      onPress: () => handleMenuPress("Terms & Conditions"),
+      onPress: () => router.push("/terms"),
     },
     {
       label: "Privacy Policy",
       icon: "shield-checkmark-outline",
-      onPress: () => handleMenuPress("Privacy Policy"),
+      onPress: () => router.push("/privacy"),
     },
   ];
 
