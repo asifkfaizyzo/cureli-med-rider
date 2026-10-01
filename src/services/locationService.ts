@@ -5,7 +5,7 @@
 
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
-import { AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus, Platform } from "react-native";
 import { useRiderOperationalStore } from "../store/riderOperationalStore";
 import { LOCATION_TASK_NAME } from "./locationTask";
 
@@ -13,8 +13,18 @@ const LOCATION_INTERVAL_MS = 10_000; // 10 seconds
 const LOCATION_DISTANCE_M = 10; // 10 meters
 const ONLINE_CHANNEL_ID = "cureli-rider-online-service";
 
-let appStateListener: ReturnType<typeof AppState.addEventListener> | null = null;
+let appStateListener: ReturnType<typeof AppState.addEventListener> | null =
+  null;
 let isStartingService = false;
+
+// ── Background Disclosure Callback (set by UI layer) ─────────
+let bgDisclosureHandler: (() => Promise<boolean>) | null = null;
+
+export function setBgDisclosureHandler(
+  handler: (() => Promise<boolean>) | null,
+) {
+  bgDisclosureHandler = handler;
+}
 
 // ── Notification Channel Setup ───────────────────────────────
 
@@ -23,6 +33,8 @@ let isStartingService = false;
  * Guarantees immediate, persistent status bar presence.
  */
 async function setupNotificationChannel(): Promise<void> {
+  if (Platform.OS !== "android") return;
+
   try {
     await Notifications.setNotificationChannelAsync(ONLINE_CHANNEL_ID, {
       name: "Rider Online Status",
@@ -34,7 +46,10 @@ async function setupNotificationChannel(): Promise<void> {
       bypassDnd: false,
     });
   } catch (error) {
-    console.warn("[LocationService] Could not set notification channel:", error);
+    console.warn(
+      "[LocationService] Could not set notification channel:",
+      error,
+    );
   }
 }
 
@@ -42,7 +57,8 @@ async function setupNotificationChannel(): Promise<void> {
 
 async function requestNotificationPermission(): Promise<boolean> {
   try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
     if (existingStatus !== "granted") {
@@ -59,13 +75,14 @@ async function requestNotificationPermission(): Promise<boolean> {
 
 // ── Permission Handling ──────────────────────────────────────
 
-export async function requestLocationPermission(): Promise<"granted" | "denied"> {
+export async function requestLocationPermission(): Promise<
+  "granted" | "denied"
+> {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
-    useRiderOperationalStore
-      .getState()
-      .setLocationPermission(status === "granted" ? "granted" : "denied");
-    return status === "granted" ? "granted" : "denied";
+    const result = status === "granted" ? "granted" : "denied";
+    useRiderOperationalStore.getState().setLocationPermission(result);
+    return result;
   } catch (error) {
     console.error("[LocationService] Permission error:", error);
     useRiderOperationalStore.getState().setLocationPermission("denied");
@@ -73,7 +90,9 @@ export async function requestLocationPermission(): Promise<"granted" | "denied">
   }
 }
 
-export async function requestBackgroundPermission(): Promise<"granted" | "denied"> {
+export async function requestBackgroundPermission(): Promise<
+  "granted" | "denied"
+> {
   try {
     const { status } = await Location.requestBackgroundPermissionsAsync();
     return status === "granted" ? "granted" : "denied";
@@ -83,11 +102,19 @@ export async function requestBackgroundPermission(): Promise<"granted" | "denied
   }
 }
 
-export async function checkLocationPermission(): Promise<"granted" | "denied" | "undetermined"> {
+export async function checkLocationPermission(): Promise<
+  "granted" | "denied" | "undetermined"
+> {
   try {
     const { status } = await Location.getForegroundPermissionsAsync();
-    if (status === "granted") return "granted";
-    if (status === "denied") return "denied";
+    if (status === "granted") {
+      useRiderOperationalStore.getState().setLocationPermission("granted");
+      return "granted";
+    }
+    if (status === "denied") {
+      useRiderOperationalStore.getState().setLocationPermission("denied");
+      return "denied";
+    }
     return "undetermined";
   } catch (error) {
     console.error("[LocationService] Permission check error:", error);
@@ -95,7 +122,9 @@ export async function checkLocationPermission(): Promise<"granted" | "denied" | 
   }
 }
 
-export async function checkBackgroundPermission(): Promise<"granted" | "denied" | "undetermined"> {
+export async function checkBackgroundPermission(): Promise<
+  "granted" | "denied" | "undetermined"
+> {
   try {
     const { status } = await Location.getBackgroundPermissionsAsync();
     if (status === "granted") return "granted";
@@ -125,9 +154,8 @@ export async function startLocationTracking(): Promise<boolean> {
   if (isStartingService) return true;
 
   // 1. If already active, DO NOT stop/restart it (avoids destroying sticky notification)
-  const isRunning = await Location.hasStartedLocationUpdatesAsync(
-    LOCATION_TASK_NAME,
-  );
+  const isRunning =
+    await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
   if (isRunning) {
     return true;
   }
@@ -155,7 +183,20 @@ export async function startLocationTracking(): Promise<boolean> {
 
     let bgPermission = await checkBackgroundPermission();
     if (bgPermission !== "granted") {
-      await requestBackgroundPermission();
+      // Show prominent disclosure BEFORE system permission dialog
+      if (bgDisclosureHandler) {
+        const userConsented = await bgDisclosureHandler();
+        if (!userConsented) {
+          console.warn("[LocationService] User declined background disclosure");
+          return false;
+        }
+      }
+      
+      const bgResult = await requestBackgroundPermission();
+      if (bgResult !== "granted") {
+        console.warn("[LocationService] Background permission denied by user");
+        return false;
+      }
     }
 
     const gpsEnabled = await checkGPSEnabled();
@@ -182,7 +223,9 @@ export async function startLocationTracking(): Promise<boolean> {
       deferredUpdatesDistance: undefined,
     });
 
-    console.log("[LocationService] Foreground service started (sticky & persistent)");
+    console.log(
+      "[LocationService] Foreground service started (sticky & persistent)",
+    );
 
     if (!appStateListener) {
       appStateListener = AppState.addEventListener(
@@ -193,7 +236,10 @@ export async function startLocationTracking(): Promise<boolean> {
 
     return true;
   } catch (error: any) {
-    console.error("[LocationService] Failed to start foreground service:", error.message);
+    console.error(
+      "[LocationService] Failed to start foreground service:",
+      error.message,
+    );
     return false;
   } finally {
     isStartingService = false;
@@ -202,9 +248,8 @@ export async function startLocationTracking(): Promise<boolean> {
 
 export async function stopLocationTracking(): Promise<void> {
   try {
-    const isRunning = await Location.hasStartedLocationUpdatesAsync(
-      LOCATION_TASK_NAME,
-    );
+    const isRunning =
+      await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
     if (isRunning) {
       await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
       console.log("[LocationService] Foreground service stopped");

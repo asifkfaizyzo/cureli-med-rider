@@ -1,7 +1,9 @@
-// src/hooks/useLocationTracking.ts (do not remove this comment)
 import { useEffect, useRef } from "react";
 import { AppState } from "react-native";
 import { useRiderOperationalStore } from "../store/riderOperationalStore";
+import { useAuthStore } from "../store/authStore";
+import { homeApi } from "../features/home/api/home.api";
+import { useDialog } from "../components/Dialog/DialogProvider";
 import {
   startLocationTracking,
   stopLocationTracking,
@@ -13,29 +15,47 @@ import {
  * Custom hook to manage location tracking lifecycle.
  * Automatically starts/stops the foreground service based on isOnline state.
  *
- * IMPORTANT: This hook should be placed in a component that stays mounted
- * for the entire authenticated session (e.g., app/(app)/_layout.tsx),
- * NOT in a tab screen that unmounts when switching tabs.
+ * If background location permission is declined, the rider is automatically
+ * rolled back to Offline on both the local store and the backend.
  */
 export function useLocationTracking() {
   const isOnline = useRiderOperationalStore((state) => state.isOnline);
+  const setOnline = useRiderOperationalStore((state) => state.setOnline);
+  const updateRider = useAuthStore((state) => state.updateRider);
+  const dialog = useDialog();
   const appState = useRef(AppState.currentState);
 
   // Start/stop foreground service based on online state
   useEffect(() => {
     if (isOnline) {
-      startLocationTracking();
+      startLocationTracking().then((success) => {
+        if (!success) {
+          // ── Rollback: Rider declined background location ──────
+          // 1. Flip local store back to offline
+          setOnline(false);
+          updateRider({ is_online: false });
+
+          // 2. Sync backend to offline
+          homeApi.toggleAvailability(false).catch((err) => {
+            console.error(
+              "[LocationTracking] Failed to sync offline rollback:",
+              err,
+            );
+          });
+
+          // 3. Inform the rider
+          dialog.alert({
+            title: "Location Required",
+            message:
+              "Background location access is required to receive and track deliveries while navigating. You have been set to Offline. Toggle Online again and grant permission to start receiving orders.",
+            icon: "location-off",
+          });
+        }
+      });
     } else {
       stopLocationTracking();
     }
-
-    // NOTE: We intentionally do NOT call stopLocationTracking() on unmount.
-    // The foreground service should persist across screen navigations.
-    // Cleanup only happens when:
-    //   1. Rider goes offline (isOnline → false)
-    //   2. Rider logs out (authStore.logout() calls stopLocationTracking explicitly)
-    //   3. App is swiped away (killServiceOnDestroy: true)
-  }, [isOnline]);
+  }, [isOnline, setOnline, updateRider, dialog]);
 
   // Periodic permission/GPS checks while online
   useEffect(() => {

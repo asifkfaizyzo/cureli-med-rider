@@ -1,6 +1,8 @@
 // app/(app)/_layout.tsx (do not remove this comment)
-
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Redirect, Stack } from "expo-router";
+import { BackgroundLocationDisclosure } from "../../src/components/BackgroundLocationDisclosure";
+import { setBgDisclosureHandler } from "../../src/services/locationService";
 import { useLocationTracking } from "../../src/hooks/useLocationTracking";
 import { useSSEConnection } from "../../src/hooks/useSSEConnection";
 import { useDeliveryEvents } from "../../src/hooks/useDeliveryEvents";
@@ -27,6 +29,37 @@ import { isDeliveryLocked } from "../../src/utils/deliveryStatus";
  * ─────────────────────────────────────────────────────────────────────
  */
 function ProtectedLayout() {
+  // ── Background Location Disclosure ──────────────────────────
+  const [showBgDisclosure, setShowBgDisclosure] = useState(false);
+  const bgResolveRef = useRef<((value: boolean) => void) | null>(null);
+
+  useEffect(() => {
+    // Register the handler that locationService will call
+    // before requesting background permission
+    setBgDisclosureHandler(() => {
+      return new Promise<boolean>((resolve) => {
+        bgResolveRef.current = resolve;
+        setShowBgDisclosure(true);
+      });
+    });
+
+    // Cleanup on unmount
+    return () => setBgDisclosureHandler(null);
+  }, []);
+
+  const handleBgAccept = useCallback(() => {
+    setShowBgDisclosure(false);
+    bgResolveRef.current?.(true);
+    bgResolveRef.current = null;
+  }, []);
+
+  const handleBgDecline = useCallback(() => {
+    setShowBgDisclosure(false);
+    bgResolveRef.current?.(false);
+    bgResolveRef.current = null;
+  }, []);
+  // ────────────────────────────────────────────────────────────
+
   useLocationTracking();
   useSSEConnection();
   useDeliveryEvents();
@@ -36,11 +69,29 @@ function ProtectedLayout() {
 
   // Fail-closed hydration gate — see DeliveryHydrationGate for rationale.
   if (!hasSyncedDelivery) {
-    return <DeliveryHydrationGate />;
+    return (
+      <>
+        <DeliveryHydrationGate />
+        <BackgroundLocationDisclosure
+          visible={showBgDisclosure}
+          onAccept={handleBgAccept}
+          onDecline={handleBgDecline}
+        />
+      </>
+    );
   }
 
   if (isDeliveryLocked(activeDelivery)) {
-    return <ActiveDeliveryScreen />;
+    return (
+      <>
+        <ActiveDeliveryScreen />
+        <BackgroundLocationDisclosure
+          visible={showBgDisclosure}
+          onAccept={handleBgAccept}
+          onDecline={handleBgDecline}
+        />
+      </>
+    );
   }
 
   return (
@@ -51,6 +102,13 @@ function ProtectedLayout() {
 
       {/* Global incoming order alert popup */}
       <IncomingOrderOverlay />
+
+      {/* Background Location Disclosure Modal */}
+      <BackgroundLocationDisclosure
+        visible={showBgDisclosure}
+        onAccept={handleBgAccept}
+        onDecline={handleBgDecline}
+      />
     </>
   );
 }
