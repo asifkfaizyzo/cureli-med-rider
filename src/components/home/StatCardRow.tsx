@@ -57,6 +57,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     gap: 12,
+    alignItems: "stretch", // Ensures both cards have identical height
   },
   card: {
     flex: 1,

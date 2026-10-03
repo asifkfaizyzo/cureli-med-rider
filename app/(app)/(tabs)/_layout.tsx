@@ -35,15 +35,13 @@ interface TabItem {
 // ── Semantic Tab Definition ────────────────────────────────────
 const ALL_TABS: Record<string, TabItem> = {
   home: { name: "home", label: "Home", icon: "home-outline" },
-  wallet: { name: "wallet", label: "Wallet", icon: "wallet-outline" },
-  refer: { name: "refer", label: "Refer", icon: "people-outline" },
+  wallet: { name: "wallet", label: "Earnings", icon: "wallet-outline" },
   more: { name: "more", label: "More", icon: "grid-outline" },
 };
 
 const PILL_WIDTHS_MAP: Record<string, number> = {
   home: 92,
-  wallet: 102,
-  refer: 96,
+  wallet: 120,
   more: 92,
 };
 
@@ -210,7 +208,7 @@ export default function TabsLayout() {
     if (isTeam) {
       return [ALL_TABS.home, ALL_TABS.more];
     }
-    return [ALL_TABS.home, ALL_TABS.wallet, ALL_TABS.refer, ALL_TABS.more];
+    return [ALL_TABS.home, ALL_TABS.wallet, ALL_TABS.more];
   }, [isTeam]);
 
   return (
@@ -234,12 +232,12 @@ export default function TabsLayout() {
           href: isTeam ? null : "/wallet",
         }}
       />
-      <Tabs.Screen 
+      {/* <Tabs.Screen 
         name="refer" 
         options={{
           href: isTeam ? null : "/refer",
         }}
-      />
+      /> */}
       
       <Tabs.Screen name="more" />
     </Tabs>

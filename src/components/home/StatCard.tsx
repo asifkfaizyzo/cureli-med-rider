@@ -21,72 +21,92 @@ export function StatCard({
   iconColor,
   variant = "default",
 }: StatCardProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
-  const getVariantColors = () => {
+  const getVariantStyles = () => {
     switch (variant) {
       case "success":
         return {
           bg: colors.status.successBg,
           border: colors.status.successBorder,
-          icon: iconColor || colors.status.success,
+          iconBg: isDark ? "rgba(74, 222, 128, 0.15)" : "#dcfce7",
+          iconColor: iconColor || colors.status.success,
         };
       case "warning":
         return {
           bg: colors.status.warningBg,
-          border: colors.status.warningBg,
-          icon: iconColor || colors.status.warning,
+          border: isDark ? "rgba(251, 191, 36, 0.2)" : "#fef3c7",
+          iconBg: isDark ? "rgba(251, 191, 36, 0.15)" : "#fef3c7",
+          iconColor: iconColor || colors.status.warning,
         };
       case "info":
         return {
           bg: colors.status.infoBg,
-          border: colors.status.infoBg,
-          icon: iconColor || colors.status.info,
+          border: isDark ? "rgba(56, 189, 248, 0.2)" : "#bae6fd",
+          iconBg: isDark ? "rgba(56, 189, 248, 0.15)" : "#e0f2fe",
+          iconColor: iconColor || colors.status.info,
         };
       default:
         return {
           bg: colors.background.card,
           border: colors.border.default,
-          icon: iconColor || colors.brand.primary,
+          iconBg: colors.background.tint,
+          iconColor: iconColor || colors.brand.primary,
         };
     }
   };
 
-  const variantColors = getVariantColors();
+  const currentVariant = getVariantStyles();
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: variantColors.bg,
-          borderColor: variantColors.border,
+          backgroundColor: currentVariant.bg,
+          borderColor: currentVariant.border,
         },
       ]}
     >
+      {/* Header: Icon + Label */}
       <View style={styles.header}>
         <View
           style={[
             styles.iconContainer,
-            { backgroundColor: colors.background.tint },
+            { backgroundColor: currentVariant.iconBg },
           ]}
         >
-          <Ionicons name={icon} size={20} color={variantColors.icon} />
+          <Ionicons name={icon} size={17} color={currentVariant.iconColor} />
         </View>
-        <Text style={[styles.label, { color: colors.text.secondary }]}>
+        <Text
+          style={[styles.label, { color: colors.text.secondary }]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {label}
         </Text>
       </View>
 
+      {/* Main Metric Value */}
       <View style={styles.content}>
-        <Text style={[styles.value, { color: colors.text.primary }]}>
+        <Text
+          style={[styles.value, { color: colors.text.primary }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+        >
           {value}
         </Text>
-        {subtitle && (
-          <Text style={[styles.subtitle, { color: colors.text.muted }]}>
+
+        {subtitle ? (
+          <Text
+            style={[styles.subtitle, { color: colors.text.muted }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {subtitle}
           </Text>
-        )}
+        ) : null}
       </View>
     </View>
   );
@@ -94,43 +114,48 @@ export function StatCard({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 12,
-    padding: 16,
+    flex: 1,
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
-    gap: 12,
+    justifyContent: "space-between",
+    gap: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowRadius: 6,
+    elevation: 1.5,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
   label: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: FontFamily.medium,
+    lineHeight: 16,
   },
   content: {
-    gap: 4,
+    gap: 2,
+    justifyContent: "flex-end",
   },
   value: {
-    fontSize: 28,
+    fontSize: 24,
     fontFamily: FontFamily.bold,
-    lineHeight: 34,
+    lineHeight: 28,
   },
   subtitle: {
     fontSize: 11,
     fontFamily: FontFamily.regular,
+    lineHeight: 15,
   },
 });

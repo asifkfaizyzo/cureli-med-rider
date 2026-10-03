@@ -18,7 +18,7 @@ export const HomeBottomSheet = React.forwardRef<BottomSheet, HomeBottomSheetProp
 
     const isTeam = riderType === "TEAM";
 
-    // Single active snap point at 380px (approx 50% of screen height)
+    // Single active snap point at 60% and secondary at 90%
     const snapPoints = useMemo(() => ["60%", "90%"], []);
 
     const handleSheetChanges = useCallback(
@@ -27,6 +27,9 @@ export const HomeBottomSheet = React.forwardRef<BottomSheet, HomeBottomSheetProp
       },
       [onSnapChange],
     );
+
+    // Get first active incentive if available
+    const activeIncentive = dashboard?.active_incentives?.[0] ?? null;
 
     return (
       <BottomSheet
@@ -73,7 +76,9 @@ export const HomeBottomSheet = React.forwardRef<BottomSheet, HomeBottomSheetProp
                     {isTeam ? "Shift Status" : "Earnings"}
                   </Text>
                   <Text style={[styles.miniValue, { color: colors.text.primary, fontSize: isTeam ? 20 : 24 }]}>
-                    {isTeam ? "ACTIVE" : `₹${dashboard.today.earnings.toFixed(0)}`}
+                    {isTeam
+                      ? "ACTIVE"
+                      : `₹${(dashboard.earnings?.today?.total ?? 0).toFixed(0)}`}
                   </Text>
                 </View>
 
@@ -90,49 +95,56 @@ export const HomeBottomSheet = React.forwardRef<BottomSheet, HomeBottomSheetProp
                     {isTeam ? "Completed Tasks" : "Deliveries"}
                   </Text>
                   <Text style={[styles.miniValue, { color: colors.text.primary }]}>
-                    {dashboard.today.deliveries_completed}
+                    {dashboard.today?.deliveries_completed ?? 0}
                   </Text>
                 </View>
               </View>
 
               {/* Conditional Incentives Section: Only for Independent Contractors */}
-              {!isTeam && dashboard.active_incentive && (
+              {!isTeam && activeIncentive && (
                 <View
                   style={[
                     styles.incentiveCard,
                     {
                       backgroundColor: colors.background.tint,
-                      borderColor: colors.border.brand,
+                      borderColor: activeIncentive.gating?.is_eligible
+                        ? colors.border.brand
+                        : colors.status.error,
                     },
                   ]}
                 >
                   <View style={styles.incentiveHeader}>
                     <Text style={[styles.incentiveTitle, { color: colors.text.primary }]}>
-                      {dashboard.active_incentive.title}
+                      {activeIncentive.title}
                     </Text>
-                    <Text style={[styles.incentivePeriod, { color: colors.text.secondary }]}>
-                      {dashboard.active_incentive.period}
-                    </Text>
+                    <View style={styles.headerBadges}>
+                      <Text style={[styles.incentivePeriod, { color: colors.text.secondary }]}>
+                        {activeIncentive.period}
+                      </Text>
+                      {!activeIncentive.gating?.is_eligible && (
+                        <View style={[styles.atRiskBadge, { backgroundColor: colors.status.errorBg }]}>
+                          <Text style={[styles.atRiskText, { color: colors.status.error }]}>AT RISK</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
 
                   <View style={styles.progressContainer}>
                     <Text style={[styles.progressText, { color: colors.text.secondary }]}>
-                      Progress: {dashboard.active_incentive.current_progress} /{" "}
-                      {dashboard.active_incentive.tiers[
-                        dashboard.active_incentive.tiers.length - 1
-                      ]?.target || 0}
+                      Progress: {activeIncentive.current_progress} /{" "}
+                      {activeIncentive.tiers[activeIncentive.tiers.length - 1]?.target || 0}
                     </Text>
                     <View style={[styles.progressBar, { backgroundColor: colors.background.card }]}>
                       <View
                         style={[
                           styles.progressFill,
                           {
-                            backgroundColor: colors.brand.primary,
+                            backgroundColor: activeIncentive.gating?.is_eligible
+                              ? colors.brand.primary
+                              : colors.status.error,
                             width: `${Math.min(
-                              (dashboard.active_incentive.current_progress /
-                                (dashboard.active_incentive.tiers[
-                                  dashboard.active_incentive.tiers.length - 1
-                                ]?.target || 1)) *
+                              (activeIncentive.current_progress /
+                                (activeIncentive.tiers[activeIncentive.tiers.length - 1]?.target || 1)) *
                                 100,
                               100,
                             )}%`,
@@ -144,7 +156,7 @@ export const HomeBottomSheet = React.forwardRef<BottomSheet, HomeBottomSheetProp
 
                   {/* Tiers */}
                   <View style={styles.tiersContainer}>
-                    {dashboard.active_incentive.tiers.map((tier) => (
+                    {activeIncentive.tiers.map((tier) => (
                       <View key={tier.level} style={styles.tier}>
                         <View
                           style={[
@@ -164,7 +176,7 @@ export const HomeBottomSheet = React.forwardRef<BottomSheet, HomeBottomSheetProp
                         <View style={styles.tierInfo}>
                           <Text style={[styles.tierTarget, { color: colors.text.primary }]}>
                             {tier.target}{" "}
-                            {dashboard.active_incentive?.metric_type === "ORDER_COUNT"
+                            {activeIncentive?.metric_type === "ORDER_COUNT"
                               ? "orders"
                               : "base"}
                           </Text>
@@ -189,7 +201,9 @@ export const HomeBottomSheet = React.forwardRef<BottomSheet, HomeBottomSheetProp
                     {isTeam ? "Duty Duration" : "Earnings"}
                   </Text>
                   <Text style={[styles.statValue, { color: colors.text.primary }]}>
-                    {isTeam ? "4.5 Hrs" : `₹${dashboard.week.earnings.toFixed(0)}`}
+                    {isTeam
+                      ? `${(dashboard.today?.online_hours ?? 0).toFixed(1)} Hrs`
+                      : `₹${(dashboard.earnings?.week?.total ?? 0).toFixed(0)}`}
                   </Text>
                 </View>
                 <View style={styles.statItem}>
@@ -197,7 +211,9 @@ export const HomeBottomSheet = React.forwardRef<BottomSheet, HomeBottomSheetProp
                     Deliveries
                   </Text>
                   <Text style={[styles.statValue, { color: colors.text.primary }]}>
-                    {isTeam ? dashboard.today.deliveries_completed : dashboard.week.deliveries_completed}
+                    {isTeam
+                      ? (dashboard.today?.deliveries_completed ?? 0)
+                      : (dashboard.week?.deliveries_completed ?? 0)}
                   </Text>
                 </View>
                 {!isTeam && (
@@ -207,15 +223,15 @@ export const HomeBottomSheet = React.forwardRef<BottomSheet, HomeBottomSheetProp
                         Tips
                       </Text>
                       <Text style={[styles.statValue, { color: colors.text.primary }]}>
-                        ₹{dashboard.week.tips.toFixed(0)}
+                        ₹{(dashboard.week?.tips ?? 0).toFixed(0)}
                       </Text>
                     </View>
                     <View style={styles.statItem}>
                       <Text style={[styles.statLabel, { color: colors.text.secondary }]}>
-                        Surge
+                        Days Active
                       </Text>
                       <Text style={[styles.statValue, { color: colors.text.primary }]}>
-                        ₹{dashboard.week.surge_earnings.toFixed(0)}
+                        {(dashboard.week?.days_online ?? 0)} Days
                       </Text>
                     </View>
                   </>
@@ -289,10 +305,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: FontFamily.semiBold,
   },
+  headerBadges: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   incentivePeriod: {
     fontSize: 11,
     fontFamily: FontFamily.medium,
     textTransform: "uppercase",
+  },
+  atRiskBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  atRiskText: {
+    fontSize: 9,
+    fontFamily: FontFamily.bold,
   },
   progressContainer: {
     gap: 6,

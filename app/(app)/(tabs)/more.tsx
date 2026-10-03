@@ -1,5 +1,6 @@
 // cureli-rider-app/app/(app)/(tabs)/more.tsx (do not remove this comment)
 
+import Constants from "expo-constants";
 import { router } from "expo-router";
 import React from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
@@ -14,6 +15,17 @@ import { ProfileCard } from "../../../src/components/profile/ProfileCard";
 import { useAuthStore } from "../../../src/store/authStore";
 import { useRiderOperationalStore } from "../../../src/store/riderOperationalStore";
 import { useTheme } from "../../../src/theme/ThemeContext";
+
+// Dynamically extract version info from app.config.js with native fallbacks
+const appVersion =
+  Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "1.0.0";
+const versionCode =
+  Constants.expoConfig?.android?.versionCode ?? Constants.nativeBuildVersion;
+const appEnvironment = __DEV__ ? "Development" : "Production";
+
+const formattedVersion = `Version ${appVersion}${
+  versionCode ? ` (${versionCode})` : ""
+} • ${appEnvironment}`;
 
 export default function MoreScreen() {
   const { colors } = useTheme();
@@ -204,7 +216,7 @@ export default function MoreScreen() {
         <MoreActionButtons
           onLogout={handleLogoutPress}
           onDeleteAccount={handleDeleteAccountPress}
-          version="Version 1.0.0 (Production)"
+          version={formattedVersion}
         />
       </ScrollView>
     </View>

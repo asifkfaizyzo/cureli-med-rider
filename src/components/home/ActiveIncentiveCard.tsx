@@ -1,7 +1,14 @@
 // src/components/home/ActiveIncentiveCard.tsx (do not remove this comment)
-import { StyleSheet, Text, View } from "react-native";
+
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+import React from "react";
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
 import { FontFamily } from "../../theme/typography";
 import type { ActiveIncentive } from "../../types/location";
@@ -13,198 +20,464 @@ interface ActiveIncentiveCardProps {
 export function ActiveIncentiveCard({ incentive }: ActiveIncentiveCardProps) {
   const { colors, isDark } = useTheme();
 
-  const progressPercentage = Math.min(
-    (incentive.current_progress /
-      (incentive.tiers[incentive.tiers.length - 1]?.target || 1)) *
-      100,
-    100,
-  );
+  const isOrderBased = incentive.metric_type === "ORDER_COUNT";
+  const tiers = incentive.tiers ?? [];
+  const maxTarget = tiers.length > 0 ? tiers[tiers.length - 1].target : 0;
+  const currentProgress = incentive.current_progress ?? 0;
 
-  const nextTier = incentive.tiers.find((t) => !t.achieved);
+  // Main linear progress bar calculation (for the top horizontal card bar)
+  const progressPercentage =
+    maxTarget > 0 ? Math.min((currentProgress / maxTarget) * 100, 100) : 0;
+
+  const nextTier = tiers.find((tier) => !tier.achieved);
+  const allAchieved = tiers.length > 0 && tiers.every((tier) => tier.achieved);
+  const isEligible = incentive.gating?.is_eligible ?? true;
+
+  const accentColor = isDark ? colors.brand.accent : colors.brand.primary;
+  const successColor = colors.status.success;
+
+  const getPeriodTime = () => {
+    switch (incentive.period) {
+      case "DAILY":
+        return "12:00 AM - 11:59 PM";
+      case "WEEKLY":
+        return "Monday - Sunday";
+      default:
+        return "Current shift window";
+    }
+  };
+
+  const getMetricTitle = () => {
+    return isOrderBased ? "Daily Streak" : "Weekly Challenge";
+  };
+
+  const formatTarget = (target: number) => {
+    return isOrderBased ? `${target}` : `₹${target.toLocaleString("en-IN")}`;
+  };
+
+  const formatProgress = (value: number) => {
+    return isOrderBased ? `${value}` : `₹${value.toLocaleString("en-IN")}`;
+  };
+
+  const getRemainingText = () => {
+    if (!nextTier) {
+      return "All milestones unlocked";
+    }
+
+    const remaining = Math.max(0, nextTier.target - currentProgress);
+
+    if (isOrderBased) {
+      return `${remaining} more ${
+        remaining === 1 ? "order" : "orders"
+      } to unlock ₹${nextTier.reward} bonus`;
+    }
+
+    return `₹${remaining.toLocaleString(
+      "en-IN",
+    )} more base earnings to unlock ₹${nextTier.reward} bonus`;
+  };
+
+  const isTierReached = (tier: (typeof tiers)[number]) => {
+    return tier.achieved || currentProgress >= tier.target;
+  };
+
+  // ── NEW: GEOMETRIC INTERPOLATION STEPPER ENGINE ──
+  // Resolves alignment mismatch by calculating percentages relative to circle centers
+  const N = tiers.length;
+  const itemWidth = N > 0 ? 100 / N : 0;
+  const firstCircleCenter = N > 0 ? 0.5 * itemWidth : 0;
+
+  const getStepperProgress = () => {
+    if (N === 0) return 0;
+
+    // Calculate centers of circles in percentage of parent container width
+    const centers = tiers.map((_, i) => (i + 0.5) * itemWidth);
+
+    if (currentProgress <= 0) return 0;
+
+    // Below Tier 1 -> Line interpolates from 0 to Circle 1
+    const firstTarget = tiers[0].target;
+    if (currentProgress < firstTarget) {
+      const ratio = currentProgress / firstTarget;
+      return ratio * centers[0];
+    }
+
+    // Between Tiers -> Interpolate line strictly between the two circle centers
+    for (let i = 0; i < N - 1; i++) {
+      const currentTarget = tiers[i].target;
+      const nextTarget = tiers[i + 1].target;
+
+      if (currentProgress >= currentTarget && currentProgress < nextTarget) {
+        const ratio = (currentProgress - currentTarget) / (nextTarget - currentTarget);
+        const startCenter = centers[i];
+        const endCenter = centers[i + 1];
+        return startCenter + ratio * (endCenter - startCenter);
+      }
+    }
+
+    // Exceeded or equal to last target -> Terminate line exactly centered on the last circle
+    return centers[N - 1];
+  };
+
+  const stepperProgress = getStepperProgress();
+  // Completed bar starts at circle 1 center, and stretches to active progress point
+  const completedLineWidth = Math.max(0, stepperProgress - firstCircleCenter);
 
   return (
-    <LinearGradient
-      colors={
-        isDark
-          ? [colors.brand.accent + "40", colors.brand.accent + "10"]
-          : [colors.brand.primary + "15", colors.brand.primary + "05"]
-      }
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+    <View
       style={[
         styles.container,
-        { borderColor: isDark ? colors.brand.accent : colors.brand.primary },
+        {
+          backgroundColor: colors.background.card,
+          borderColor: !isEligible ? colors.status.error : colors.border.default,
+        },
       ]}
     >
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View
             style={[
               styles.iconContainer,
-              { backgroundColor: isDark ? colors.brand.accent : colors.brand.primary },
+              {
+                backgroundColor: isEligible
+                  ? colors.background.tint
+                  : colors.status.errorBg,
+              },
             ]}
           >
-            <Ionicons name="trophy" size={18} color="#ffffff" />
+            <Ionicons
+              name={allAchieved ? "checkmark-circle" : "trophy"}
+              size={18}
+              color={isEligible ? accentColor : colors.status.error}
+            />
           </View>
+
           <View style={styles.headerText}>
-            <Text style={[styles.title, { color: colors.text.primary }]}>
+            <Text
+              style={[styles.title, { color: colors.text.primary }]}
+              numberOfLines={1}
+            >
               {incentive.title}
             </Text>
-            <Text style={[styles.period, { color: colors.text.secondary }]}>
-              {incentive.period} • {incentive.metric_type === "ORDER_COUNT" ? "Orders" : "Earnings"}
+            <Text style={[styles.period, { color: colors.text.muted }]}>
+              {getMetricTitle()} • {getPeriodTime()}
             </Text>
           </View>
         </View>
-        {incentive.is_featured && (
+
+        {!isEligible && (
           <View
             style={[
-              styles.badge,
-              { backgroundColor: colors.status.warningBg },
+              styles.riskBadge,
+              { backgroundColor: colors.status.errorBg },
             ]}
           >
-            <Ionicons name="star" size={12} color={colors.status.warning} />
-            <Text style={[styles.badgeText, { color: colors.status.warning }]}>
-              Featured
+            <Ionicons name="warning" size={11} color={colors.status.error} />
+            <Text style={[styles.riskText, { color: colors.status.error }]}>
+              AT RISK
             </Text>
           </View>
         )}
       </View>
 
-      {incentive.description && (
-        <Text style={[styles.description, { color: colors.text.secondary }]}>
-          {incentive.description}
+      {/* =====================================================
+          PROGRESS BAR
+      ===================================================== */}
+      <View style={styles.progressHeader}>
+        <Text style={[styles.progressLabel, { color: colors.text.secondary }]}>
+          Progress
         </Text>
-      )}
+        <Text style={[styles.progressValue, { color: colors.text.primary }]}>
+          {formatProgress(currentProgress)} / {formatTarget(maxTarget)}
+        </Text>
+      </View>
 
-      <View style={styles.progressSection}>
-        <View style={styles.progressHeader}>
-          <Text style={[styles.progressLabel, { color: colors.text.secondary }]}>
-            Progress
-          </Text>
-          <Text style={[styles.progressValue, { color: colors.text.primary }]}>
-            {incentive.current_progress} /{" "}
-            {incentive.tiers[incentive.tiers.length - 1]?.target || 0}
-          </Text>
-        </View>
+      <View
+        style={[
+          styles.progressTrack,
+          { backgroundColor: colors.background.tint },
+        ]}
+      >
         <View
           style={[
-            styles.progressBar,
-            { backgroundColor: colors.background.card },
+            styles.progressFill,
+            {
+              width: `${progressPercentage}%`,
+              backgroundColor: isEligible ? accentColor : colors.status.error,
+            },
           ]}
+        />
+      </View>
+
+      <Text
+        style={[
+          styles.nextTierText,
+          { color: allAchieved ? successColor : colors.text.muted },
+        ]}
+      >
+        {allAchieved ? "All milestones unlocked" : getRemainingText()}
+      </Text>
+
+      {/* =====================================================
+          MILESTONE STEPPER
+      ===================================================== */}
+      <View
+        style={[
+          styles.stepperWrapper,
+          {
+            backgroundColor: isDark
+              ? "rgba(255, 255, 255, 0.02)"
+              : colors.background.tint,
+            borderColor: colors.border.subtle,
+          },
+        ]}
+      >
+        <Text style={[styles.sectionLabel, { color: colors.text.secondary }]}>
+          Milestone Pay Rewards
+        </Text>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.stepperScrollContent}
         >
           <View
             style={[
-              styles.progressFill,
-              {
-                backgroundColor: isDark ? colors.brand.accent : colors.brand.primary,
-                width: `${progressPercentage}%`,
-              },
-            ]}
-          />
-        </View>
-        {nextTier && (
-          <Text style={[styles.nextTierText, { color: colors.text.muted }]}>
-            {nextTier.target - incentive.current_progress} more to unlock ₹
-            {nextTier.reward} bonus
-          </Text>
-        )}
-      </View>
-
-      <View style={styles.tiers}>
-        {incentive.tiers.map((tier) => (
-          <View
-            key={tier.level}
-            style={[
-              styles.tier,
-              {
-                backgroundColor: tier.achieved
-                  ? colors.status.successBg
-                  : colors.background.tint,
-                borderColor: tier.achieved
-                  ? colors.status.success
-                  : colors.border.default,
-              },
+              styles.stepper,
+              { width: Math.max(tiers.length * 70, 360) },
             ]}
           >
-            <View style={styles.tierHeader}>
+            {/* ---------------- REWARD ROW ---------------- */}
+            <View style={styles.stepperRow}>
+              {tiers.map((tier) => {
+                const reached = isTierReached(tier);
+                return (
+                  <View key={`reward-${tier.level}`} style={styles.stepItem}>
+                    <Text
+                      style={[
+                        styles.rewardText,
+                        {
+                          color: reached ? successColor : colors.text.secondary,
+                        },
+                      ]}
+                    >
+                      ₹{tier.reward}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* ---------------- STEPPER PROGRESS LINE ---------------- */}
+            <View style={styles.lineContainer}>
+              {/* Dynamic gray background track */}
               <View
                 style={[
-                  styles.tierIndicator,
+                  styles.stepLine,
                   {
-                    backgroundColor: tier.achieved
-                      ? colors.status.success
-                      : "transparent",
-                    borderColor: tier.achieved
-                      ? colors.status.success
-                      : colors.border.default,
+                    left: `${firstCircleCenter}%`,
+                    right: `${firstCircleCenter}%`,
+                    backgroundColor: colors.border.default,
+                  },
+                ]}
+              />
+
+              {/* Dynamic matching progress line */}
+              {tiers.length > 1 && (
+                <View
+                  style={[
+                    styles.completedLine,
+                    {
+                      left: `${firstCircleCenter}%`,
+                      width: `${completedLineWidth}%`,
+                      backgroundColor: successColor,
+                    },
+                  ]}
+                />
+              )}
+
+              {/* Milestone circles overlay */}
+              <View style={styles.stepperRow}>
+                {tiers.map((tier) => {
+                  const reached = isTierReached(tier);
+                  return (
+                    <View key={`circle-${tier.level}`} style={styles.stepItem}>
+                      <View
+                        style={[
+                          styles.stepCircle,
+                          {
+                            backgroundColor: reached
+                              ? successColor
+                              : colors.background.card,
+                            borderColor: reached
+                              ? successColor
+                              : colors.border.default,
+                          },
+                        ]}
+                      >
+                        {reached ? (
+                          <Ionicons name="checkmark" size={10} color="#ffffff" />
+                        ) : (
+                          <View
+                            style={[
+                              styles.innerDot,
+                              { backgroundColor: colors.border.default },
+                            ]}
+                          />
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* ---------------- TARGET ROW ---------------- */}
+            <View style={[styles.stepperRow, styles.targetRow]}>
+              {tiers.map((tier) => {
+                const reached = isTierReached(tier);
+                return (
+                  <View key={`target-${tier.level}`} style={styles.stepItem}>
+                    <Text
+                      style={[
+                        styles.targetText,
+                        {
+                          color: reached
+                            ? colors.text.primary
+                            : colors.text.secondary,
+                        },
+                      ]}
+                    >
+                      {formatTarget(tier.target)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Legend */}
+        <View style={styles.metricLabelRow}>
+          <View
+            style={[
+              styles.metricDot,
+              { backgroundColor: colors.status.warning },
+            ]}
+          />
+          <Text style={[styles.metricLabel, { color: colors.text.muted }]}>
+            {isOrderBased ? "Completed orders" : "Base earnings"}
+          </Text>
+        </View>
+      </View>
+
+      {/* =====================================================
+          GATING WARNINGS
+      ===================================================== */}
+      {incentive.gating?.warnings && incentive.gating.warnings.length > 0 && (
+        <View
+          style={[
+            styles.gatingSection,
+            {
+              backgroundColor: isEligible
+                ? colors.status.warningBg
+                : colors.status.errorBg,
+            },
+          ]}
+        >
+          <View style={styles.gatingIcon}>
+            <Ionicons
+              name={isEligible ? "information-circle" : "alert-circle"}
+              size={15}
+              color={isEligible ? colors.status.warning : colors.status.error}
+            />
+          </View>
+          <View style={styles.gatingTexts}>
+            {incentive.gating.warnings.map((warning, index) => (
+              <Text
+                key={index}
+                style={[
+                  styles.gatingWarning,
+                  {
+                    color: isEligible
+                      ? colors.status.warning
+                      : colors.status.error,
                   },
                 ]}
               >
-                {tier.achieved && (
-                  <Ionicons name="checkmark" size={12} color="#ffffff" />
-                )}
-              </View>
-              <Text style={[styles.tierLevel, { color: colors.text.secondary }]}>
-                Tier {tier.level}
+                {warning}
               </Text>
-            </View>
-            <Text style={[styles.tierTarget, { color: colors.text.primary }]}>
-              {tier.target}{" "}
-              {incentive.metric_type === "ORDER_COUNT" ? "orders" : "base"}
-            </Text>
-            <Text style={[styles.tierReward, { color: colors.status.success }]}>
-              ₹{tier.reward}
-            </Text>
+            ))}
           </View>
-        ))}
-      </View>
-    </LinearGradient>
+        </View>
+      )}
+
+      {/* =====================================================
+          RATE CARD FOOTER
+      ===================================================== */}
+      <TouchableOpacity
+        activeOpacity={0.7}
+        style={styles.rateCardButton}
+        onPress={() => {
+          // TODO: Navigate to rate card
+        }}
+      >
+        <Text style={[styles.rateCardText, { color: accentColor }]}>
+          See rate card details
+        </Text>
+        <Ionicons name="chevron-forward" size={12} color={accentColor} />
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
-    padding: 16,
-    gap: 16,
-    borderWidth: 1.5,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1.5,
   },
   header: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "flex-start",
   },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     flex: 1,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
   headerText: {
     flex: 1,
-    gap: 2,
   },
   title: {
-    fontSize: 16,
-    fontFamily: FontFamily.semiBold,
+    fontSize: 15,
+    fontFamily: FontFamily.bold,
+    lineHeight: 18,
   },
   period: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FontFamily.regular,
+    marginTop: 1,
   },
-  badge: {
+  riskBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
@@ -212,23 +485,15 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  badgeText: {
+  riskText: {
     fontSize: 10,
     fontFamily: FontFamily.bold,
-    textTransform: "uppercase",
-  },
-  description: {
-    fontSize: 13,
-    fontFamily: FontFamily.regular,
-    lineHeight: 18,
-  },
-  progressSection: {
-    gap: 8,
   },
   progressHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 2,
   },
   progressLabel: {
     fontSize: 13,
@@ -236,57 +501,133 @@ const styles = StyleSheet.create({
   },
   progressValue: {
     fontSize: 14,
-    fontFamily: FontFamily.semiBold,
+    fontFamily: FontFamily.bold,
   },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
+  progressTrack: {
+    height: 6,
+    borderRadius: 3,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
-    borderRadius: 4,
+    borderRadius: 3,
   },
   nextTierText: {
     fontSize: 11,
-    fontFamily: FontFamily.regular,
+    fontFamily: FontFamily.medium,
+    lineHeight: 15,
   },
-  tiers: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  tier: {
-    flex: 1,
-    padding: 10,
+  stepperWrapper: {
     borderRadius: 10,
     borderWidth: 1,
-    gap: 6,
-    alignItems: "center",
+    padding: 10,
+    gap: 10,
   },
-  tierHeader: {
+  sectionLabel: {
+    fontSize: 11,
+    fontFamily: FontFamily.bold,
+  },
+  stepperScrollContent: {
+    paddingVertical: 4,
+  },
+  stepper: {
+    position: "relative",
+  },
+  stepperRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
   },
-  tierIndicator: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
+  stepItem: {
+    flex: 1,
+    minWidth: 60,
     alignItems: "center",
     justifyContent: "center",
   },
-  tierLevel: {
+  rewardText: {
+    fontSize: 11,
+    fontFamily: FontFamily.bold,
+  },
+  lineContainer: {
+    height: 24,
+    justifyContent: "center",
+    position: "relative",
+    marginVertical: 4,
+  },
+  stepLine: {
+    position: "absolute",
+    top: 11,
+    height: 2,
+    borderRadius: 1,
+  },
+  completedLine: {
+    position: "absolute",
+    top: 11,
+    height: 2,
+    borderRadius: 1,
+  },
+  stepCircle: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+  },
+  innerDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  targetRow: {
+    marginTop: 2,
+  },
+  targetText: {
     fontSize: 10,
     fontFamily: FontFamily.medium,
   },
-  tierTarget: {
-    fontSize: 12,
-    fontFamily: FontFamily.regular,
-    textAlign: "center",
+  metricLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
   },
-  tierReward: {
-    fontSize: 14,
+  metricDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  metricLabel: {
+    fontSize: 9,
+    fontFamily: FontFamily.medium,
+  },
+  gatingSection: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+  },
+  gatingIcon: {
+    paddingTop: 1,
+  },
+  gatingTexts: {
+    flex: 1,
+    gap: 2,
+  },
+  gatingWarning: {
+    fontSize: 11,
+    fontFamily: FontFamily.medium,
+    lineHeight: 14,
+  },
+  rateCardButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 2,
+    marginTop: 2,
+  },
+  rateCardText: {
+    fontSize: 11,
     fontFamily: FontFamily.bold,
   },
 });

@@ -3,41 +3,92 @@ import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
 import { FontFamily } from "../../theme/typography";
-import type { PeriodStats } from "../../types/location";
+import type { WeekStats, WeekEarnings } from "../../types/location";
 
 interface WeeklySummaryCardProps {
-  stats: PeriodStats;
+  week?: WeekStats;
+  earnings?: WeekEarnings; // INDEPENDENT only
 }
 
-export function WeeklySummaryCard({ stats }: WeeklySummaryCardProps) {
-  const { colors } = useTheme();
+export function WeeklySummaryCard({ week, earnings }: WeeklySummaryCardProps) {
+  const { colors, isDark } = useTheme();
 
-  const metrics = [
-    {
-      icon: "cash-outline" as const,
-      label: "Earnings",
-      value: `₹${stats.earnings.toFixed(0)}`,
+  if (!week) return null;
+
+  const metrics: {
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+    value: string;
+    color: string;
+    bg: string;
+  }[] = [];
+
+  // INDEPENDENT: show earnings first
+  if (earnings) {
+    metrics.push({
+      icon: "cash",
+      label: "Weekly Earnings",
+      value: `₹${(earnings.total ?? 0).toFixed(0)}`,
       color: colors.status.success,
-    },
+      bg: isDark ? "rgba(74, 222, 128, 0.12)" : "#dcfce7",
+    });
+  }
+
+  metrics.push(
     {
-      icon: "bicycle-outline" as const,
-      label: "Deliveries",
-      value: stats.deliveries_completed.toString(),
+      icon: "bicycle",
+      label: "Deliveries Completed",
+      value: (week.deliveries_completed ?? 0).toString(),
       color: colors.brand.primary,
+      bg: isDark ? "rgba(176, 132, 235, 0.15)" : colors.background.tint,
     },
     {
-      icon: "heart-outline" as const,
-      label: "Tips",
-      value: `₹${stats.tips.toFixed(0)}`,
-      color: colors.status.warning,
-    },
-    {
-      icon: "time-outline" as const,
+      icon: "time",
       label: "Online Hours",
-      value: `${stats.online_hours.toFixed(1)}h`,
+      value: `${(week.online_hours ?? 0).toFixed(1)}h`,
       color: colors.status.info,
+      bg: isDark ? "rgba(56, 189, 248, 0.12)" : "#e0f2fe",
     },
-  ];
+    {
+      icon: "calendar",
+      label: "Days Active",
+      value: `${week.days_online ?? 0} days`,
+      color: colors.brand.secondary,
+      bg: isDark ? "rgba(12, 151, 184, 0.12)" : colors.status.infoBg,
+    },
+  );
+
+  // Tips shown for both types if they exist
+  if (week.tips > 0) {
+    metrics.push({
+      icon: "heart",
+      label: "Tips Earned",
+      value: `₹${week.tips.toFixed(0)}`,
+      color: colors.status.warning,
+      bg: isDark ? "rgba(251, 191, 36, 0.12)" : "#fef3c7",
+    });
+  }
+
+  // Delta Badge configuration
+  const deltaVal = earnings?.delta_pct_vs_last_week;
+  const showDelta = deltaVal != null && deltaVal !== 0;
+
+  const deltaTheme =
+    deltaVal != null && deltaVal >= 0
+      ? {
+          color: colors.status.success,
+          bg: colors.status.successBg,
+          border: colors.status.successBorder,
+          icon: "trending-up" as const,
+          sign: "+",
+        }
+      : {
+          color: colors.status.error,
+          bg: colors.status.errorBg,
+          border: colors.status.errorBorder,
+          icon: "trending-down" as const,
+          sign: "",
+        };
 
   return (
     <View
@@ -49,32 +100,79 @@ export function WeeklySummaryCard({ stats }: WeeklySummaryCardProps) {
         },
       ]}
     >
+      {/* Header */}
       <View style={styles.header}>
-        <Ionicons name="calendar-outline" size={20} color={colors.text.secondary} />
-        <Text style={[styles.title, { color: colors.text.primary }]}>
-          This Week
-        </Text>
+        <View style={styles.headerLeft}>
+          <View
+            style={[
+              styles.headerIconContainer,
+              { backgroundColor: colors.background.tint },
+            ]}
+          >
+            <Ionicons
+              name="calendar"
+              size={15}
+              color={colors.brand.primary}
+            />
+          </View>
+          <Text style={[styles.title, { color: colors.text.primary }]}>
+            Weekly Performance
+          </Text>
+        </View>
+
+        {showDelta && (
+          <View
+            style={[
+              styles.deltaBadge,
+              {
+                backgroundColor: deltaTheme.bg,
+                borderColor: deltaTheme.border,
+              },
+            ]}
+          >
+            <Ionicons name={deltaTheme.icon} size={11} color={deltaTheme.color} />
+            <Text style={[styles.deltaText, { color: deltaTheme.color }]}>
+              {deltaTheme.sign}
+              {deltaVal}% WoW
+            </Text>
+          </View>
+        )}
       </View>
 
-      <View style={styles.grid}>
+      {/* Metrics List */}
+      <View style={styles.list}>
         {metrics.map((metric, index) => (
-          <View key={index} style={styles.metric}>
-            <View
-              style={[
-                styles.iconContainer,
-                { backgroundColor: colors.background.tint },
-              ]}
-            >
-              <Ionicons name={metric.icon} size={18} color={metric.color} />
+          <View key={index}>
+            <View style={styles.metric}>
+              <View style={[styles.iconContainer, { backgroundColor: metric.bg }]}>
+                <Ionicons name={metric.icon} size={16} color={metric.color} />
+              </View>
+
+              <View style={styles.metricContent}>
+                <Text
+                  style={[styles.metricLabel, { color: colors.text.secondary }]}
+                  numberOfLines={1}
+                >
+                  {metric.label}
+                </Text>
+                <Text
+                  style={[styles.metricValue, { color: colors.text.primary }]}
+                  numberOfLines={1}
+                >
+                  {metric.value}
+                </Text>
+              </View>
             </View>
-            <View style={styles.metricContent}>
-              <Text style={[styles.metricLabel, { color: colors.text.secondary }]}>
-                {metric.label}
-              </Text>
-              <Text style={[styles.metricValue, { color: colors.text.primary }]}>
-                {metric.value}
-              </Text>
-            </View>
+
+            {/* Separator line except for the last item */}
+            {index < metrics.length - 1 && (
+              <View
+                style={[
+                  styles.separator,
+                  { backgroundColor: colors.border.subtle },
+                ]}
+              />
+            )}
           </View>
         ))}
       </View>
@@ -84,37 +182,62 @@ export function WeeklySummaryCard({ stats }: WeeklySummaryCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
-    gap: 16,
+    gap: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowRadius: 6,
+    elevation: 1.5,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
+  headerIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   title: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: FontFamily.semiBold,
   },
-  grid: {
-    gap: 12,
+  deltaBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  deltaText: {
+    fontSize: 10,
+    fontFamily: FontFamily.bold,
+  },
+  list: {
+    gap: 10,
   },
   metric: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -125,11 +248,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   metricLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FontFamily.regular,
+    flex: 1,
+    marginRight: 10,
   },
   metricValue: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: FontFamily.semiBold,
+  },
+  separator: {
+    height: 1,
+    marginTop: 10,
+    marginLeft: 40, // Aligns separator line cleanly past the metric icon
   },
 });
