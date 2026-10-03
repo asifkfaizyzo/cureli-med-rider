@@ -8,22 +8,22 @@ import * as Notifications from "expo-notifications";
 import { AppState, AppStateStatus, Platform } from "react-native";
 import { useRiderOperationalStore } from "../store/riderOperationalStore";
 import { LOCATION_TASK_NAME } from "./locationTask";
+import type { DisclosureType } from "../components/BackgroundLocationDisclosure";
 
 const LOCATION_INTERVAL_MS = 10_000; // 10 seconds
 const LOCATION_DISTANCE_M = 10; // 10 meters
 const ONLINE_CHANNEL_ID = "cureli-rider-online-service";
 
-let appStateListener: ReturnType<typeof AppState.addEventListener> | null =
-  null;
+let appStateListener: ReturnType<typeof AppState.addEventListener> | null = null;
 let isStartingService = false;
 
-// ── Background Disclosure Callback (set by UI layer) ─────────
-let bgDisclosureHandler: (() => Promise<boolean>) | null = null;
+// ── Dynamic Prominent Disclosure Bridge (UI Hook) ─────────────
+let disclosureHandler: ((type: DisclosureType) => Promise<boolean>) | null = null;
 
-export function setBgDisclosureHandler(
-  handler: (() => Promise<boolean>) | null,
+export function setLocationDisclosureHandler(
+  handler: ((type: DisclosureType) => Promise<boolean>) | null,
 ) {
-  bgDisclosureHandler = handler;
+  disclosureHandler = handler;
 }
 
 // ── Notification Channel Setup ───────────────────────────────
@@ -38,7 +38,7 @@ async function setupNotificationChannel(): Promise<void> {
   try {
     await Notifications.setNotificationChannelAsync(ONLINE_CHANNEL_ID, {
       name: "Rider Online Status",
-      importance: Notifications.AndroidImportance.MAX, // Highest importance on Android
+      importance: Notifications.AndroidImportance.MAX,
       enableVibrate: false,
       sound: null,
       showBadge: true,
@@ -73,7 +73,7 @@ async function requestNotificationPermission(): Promise<boolean> {
   }
 }
 
-// ── Permission Handling ──────────────────────────────────────
+// ── Direct Permission APIs ───────────────────────────────────
 
 export async function requestLocationPermission(): Promise<
   "granted" | "denied"
@@ -84,7 +84,7 @@ export async function requestLocationPermission(): Promise<
     useRiderOperationalStore.getState().setLocationPermission(result);
     return result;
   } catch (error) {
-    console.error("[LocationService] Permission error:", error);
+    console.error("[LocationService] Foreground permission error:", error);
     useRiderOperationalStore.getState().setLocationPermission("denied");
     return "denied";
   }
@@ -153,14 +153,12 @@ export async function checkGPSEnabled(): Promise<boolean> {
 export async function startLocationTracking(): Promise<boolean> {
   if (isStartingService) return true;
 
-  // 1. If already active, DO NOT stop/restart it (avoids destroying sticky notification)
   const isRunning =
     await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
   if (isRunning) {
     return true;
   }
 
-  // Guard against Android 12+ background start restrictions
   if (AppState.currentState !== "active") {
     return false;
   }
@@ -168,30 +166,38 @@ export async function startLocationTracking(): Promise<boolean> {
   isStartingService = true;
 
   try {
-    // 2. Setup channel & permissions
     await setupNotificationChannel();
     await requestNotificationPermission();
 
-    let permissionStatus = await checkLocationPermission();
-    if (permissionStatus !== "granted") {
-      permissionStatus = await requestLocationPermission();
-      if (permissionStatus !== "granted") {
+    // ── STEP 1: FOREGROUND PERMISSION CHECK & DISCLOSURE ────
+    let fgStatus = await checkLocationPermission();
+    if (fgStatus !== "granted") {
+      if (disclosureHandler) {
+        const userConsented = await disclosureHandler("foreground");
+        if (!userConsented) {
+          console.warn("[LocationService] User declined foreground disclosure");
+          return false;
+        }
+      }
+
+      const fgResult = await requestLocationPermission();
+      if (fgResult !== "granted") {
         console.warn("[LocationService] Foreground permission denied");
         return false;
       }
     }
 
-    let bgPermission = await checkBackgroundPermission();
-    if (bgPermission !== "granted") {
-      // Show prominent disclosure BEFORE system permission dialog
-      if (bgDisclosureHandler) {
-        const userConsented = await bgDisclosureHandler();
+    // ── STEP 2: BACKGROUND PERMISSION CHECK & DISCLOSURE ────
+    let bgStatus = await checkBackgroundPermission();
+    if (bgStatus !== "granted") {
+      if (disclosureHandler) {
+        const userConsented = await disclosureHandler("background");
         if (!userConsented) {
           console.warn("[LocationService] User declined background disclosure");
           return false;
         }
       }
-      
+
       const bgResult = await requestBackgroundPermission();
       if (bgResult !== "granted") {
         console.warn("[LocationService] Background permission denied by user");
@@ -199,13 +205,14 @@ export async function startLocationTracking(): Promise<boolean> {
       }
     }
 
+    // ── STEP 3: GPS ENABLED CHECK ───────────────────────────
     const gpsEnabled = await checkGPSEnabled();
     if (!gpsEnabled) {
       console.warn("[LocationService] GPS is disabled on device");
       return false;
     }
 
-    // 3. Launch the Android Foreground Service
+    // ── STEP 4: LAUNCH FOREGROUND SERVICE ───────────────────
     await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
       accuracy: Location.Accuracy.High,
       timeInterval: LOCATION_INTERVAL_MS,
@@ -288,6 +295,10 @@ export async function getCurrentLocation(): Promise<{
   try {
     let permissionStatus = await checkLocationPermission();
     if (permissionStatus !== "granted") {
+      if (disclosureHandler) {
+        const consented = await disclosureHandler("foreground");
+        if (!consented) return null;
+      }
       permissionStatus = await requestLocationPermission();
       if (permissionStatus !== "granted") {
         console.warn("[LocationService] Location permissions not granted.");

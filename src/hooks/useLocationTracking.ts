@@ -1,3 +1,4 @@
+// src/hooks/useLocationTracking.ts (do not remove this comment)
 import { useEffect, useRef } from "react";
 import { AppState } from "react-native";
 import { useRiderOperationalStore } from "../store/riderOperationalStore";
@@ -15,8 +16,8 @@ import {
  * Custom hook to manage location tracking lifecycle.
  * Automatically starts/stops the foreground service based on isOnline state.
  *
- * If background location permission is declined, the rider is automatically
- * rolled back to Offline on both the local store and the backend.
+ * If permissions or prominent disclosure are declined, the rider is
+ * safely rolled back to Offline on both the local store and the backend.
  */
 export function useLocationTracking() {
   const isOnline = useRiderOperationalStore((state) => state.isOnline);
@@ -30,7 +31,7 @@ export function useLocationTracking() {
     if (isOnline) {
       startLocationTracking().then((success) => {
         if (!success) {
-          // ── Rollback: Rider declined background location ──────
+          // ── Rollback: Rider declined permission / disclosure ────
           // 1. Flip local store back to offline
           setOnline(false);
           updateRider({ is_online: false });
@@ -47,7 +48,7 @@ export function useLocationTracking() {
           dialog.alert({
             title: "Location Required",
             message:
-              "Background location access is required to receive and track deliveries while navigating. You have been set to Offline. Toggle Online again and grant permission to start receiving orders.",
+              "Location and background tracking permissions are required to receive delivery orders. You have been set to Offline. Toggle Online again and grant permission to start receiving orders.",
             icon: "location-off",
           });
         }

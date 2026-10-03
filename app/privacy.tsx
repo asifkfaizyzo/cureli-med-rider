@@ -52,45 +52,137 @@ export default function PrivacyScreen() {
           Last Updated: October 2026
         </Text>
 
+        {/* Section 1 */}
         <Text style={[styles.heading, { color: colors.text.primary }]}>
-          1. Overview and Core Data Values
+          1. Scope & Ecosystem Overview
         </Text>
         <Text style={[styles.body, { color: colors.text.secondary }]}>
-          Your confidentiality is critical to us. Because the Cureli platform
-          facilitates urgent medical deliveries, we collect background
-          positioning metrics, verification snapshots, device telemetry, and
-          registration records to protect our operations and prevent service
-          disruptions.
+          Cureli ("we," "our," or "us") is dedicated to protecting your privacy.
+          This policy applies strictly to the{" "}
+          <Text style={[styles.bold, { color: colors.text.primary }]}>
+            Cureli Rider Mobile Application (com.cureli.rider)
+          </Text>{" "}
+          and details how we handle sensitive personal, location, and document
+          data.
         </Text>
 
+        {/* Section 2 - PROMINENT LOCATION DISCLOSURE (Google Mandated) */}
+        <View
+          style={[
+            styles.highlightBox,
+            {
+              backgroundColor: colors.background.tint,
+              borderLeftColor: colors.brand.primary,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.highlightHeading, { color: colors.brand.primary }]}
+          >
+            2. Prominent Location Disclosure & Usage
+          </Text>
+          <Text style={[styles.body, { color: colors.text.secondary }]}>
+            <Text style={[styles.bold, { color: colors.text.primary }]}>
+              Cureli Rider collects, processes, and transmits precise location
+              data (GPS coordinates)
+            </Text>{" "}
+            to enable live medicine order assignment, delivery route navigation,
+            and real-time ETA tracking for partner pharmacies and customers{" "}
+            <Text
+              style={[styles.boldHighlight, { color: colors.brand.primary }]}
+            >
+              even when the app is closed or not in use (running in the
+              background).
+            </Text>
+          </Text>
+          <Text
+            style={[
+              styles.body,
+              { color: colors.text.secondary, marginTop: 8 },
+            ]}
+          >
+            This background tracking is initiated only when you manually switch
+            your toggle status to "Online" on the dashboard and is deactivated
+            immediately when you toggle "Offline" or log out.
+          </Text>
+        </View>
+
+        {/* Section 3 */}
         <Text style={[styles.heading, { color: colors.text.primary }]}>
-          2. Critical Geo-tracking Operations
+          3. Identification & KYC Documents
         </Text>
         <Text style={[styles.body, { color: colors.text.secondary }]}>
-          To update pharmacies and customers during active deliveries, Cureli
-          processes continuous latitude and longitude signals. This monitoring
-          runs even if the app is placed in background sleep modes, provided
-          your toggle status is set to "Online".
+          To verify identity, establish professional driving clearance, and
+          comply with drug logistics enforcement regulations in India, we
+          collect and store:
+        </Text>
+        <View style={styles.bulletList}>
+          <Text style={[styles.bulletPoint, { color: colors.text.secondary }]}>
+            •{" "}
+            <Text style={[styles.bold, { color: colors.text.primary }]}>
+              KYC Records:
+            </Text>{" "}
+            Aadhaar Card, PAN Card, Driving License, and Vehicle Registration
+            Certificate (RC).
+          </Text>
+          <Text style={[styles.bulletPoint, { color: colors.text.secondary }]}>
+            •{" "}
+            <Text style={[styles.bold, { color: colors.text.primary }]}>
+              Live Photographs:
+            </Text>{" "}
+            Selfie uploads taken during registration for visual authentication
+            and fraud prevention.
+          </Text>
+          <Text style={[styles.bulletPoint, { color: colors.text.secondary }]}>
+            •{" "}
+            <Text style={[styles.bold, { color: colors.text.primary }]}>
+              Financial Payout Info:
+            </Text>{" "}
+            Bank account numbers, IFSC codes, and UPI details to process and
+            deposit your delivery earnings.
+          </Text>
+        </View>
+
+        {/* Section 4 */}
+        <Text style={[styles.heading, { color: colors.text.primary }]}>
+          4. Secure Data Handling & Encryption
+        </Text>
+        <Text style={[styles.body, { color: colors.text.secondary }]}>
+          We transmit all personal and location coordinates securely over HTTPS
+          utilizing modern TLS encryption. Your document uploads and financial
+          details are kept isolated in secure database clouds with strict,
+          role-based access permissions. We do not sell or lease your identity
+          assets to third-party marketing brokers.
         </Text>
 
+        {/* Section 5 */}
         <Text style={[styles.heading, { color: colors.text.primary }]}>
-          3. Personal Identification & Document Storing
+          5. Account & Personal Data Deletion
         </Text>
         <Text style={[styles.body, { color: colors.text.secondary }]}>
-          For regulatory and drug enforcement tracking compliance, documentation
-          files (such as Aadhar, DL, PAN, vehicle registration and self-taken
-          photos) are verified and cached securely inside encrypted database
-          clouds. We do not sell or leak identity assets to third-party
-          marketing brokers.
+          You retain full rights to inspect, update, or request the permanent
+          deletion of your account and personal history. To trigger an active
+          data deletion request, you can visit our contact portal at{" "}
+          <Text style={[styles.bold, { color: colors.brand.primary }]}>
+            https://curelihealth.com/contact
+          </Text>{" "}
+          or email us directly at{" "}
+          <Text style={[styles.bold, { color: colors.brand.primary }]}>
+            info@curelihealth.com
+          </Text>
+          . Upon verification, your profile, document archives, and live
+          photographs will be purged from our servers within 30 days.
         </Text>
 
+        {/* Section 6 */}
         <Text style={[styles.heading, { color: colors.text.primary }]}>
-          4. Policy Adjustments and Support
+          6. Contact Us
         </Text>
         <Text style={[styles.body, { color: colors.text.secondary }]}>
-          Cureli retains full rights to modify these clauses to align with local
-          regulatory frameworks. For personal data audit logs, deletion
-          requests, or support updates, send details to info@curelihealth.com.
+          Cureli Healthcare India{"\n"}
+          Email: info@curelihealth.com{"\n"}
+          Phone: +91 7356020940{"\n"}
+          Address: Bangalore, Karnataka, India
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -129,7 +221,7 @@ const styles = StyleSheet.create({
   lastUpdated: {
     fontSize: 12,
     fontFamily: FontFamily.semiBold,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   heading: {
     fontSize: 15,
@@ -140,5 +232,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: FontFamily.regular,
     lineHeight: 22,
+  },
+  highlightBox: {
+    borderLeftWidth: 4,
+    borderRadius: 8,
+    padding: 16,
+    marginVertical: 10,
+    gap: 8,
+  },
+  highlightHeading: {
+    fontSize: 14,
+    fontFamily: FontFamily.bold,
+  },
+  bold: {
+    fontFamily: FontFamily.bold,
+  },
+  boldHighlight: {
+    fontFamily: FontFamily.bold,
+  },
+  bulletList: {
+    gap: 8,
+    paddingLeft: 4,
+    marginVertical: 4,
+  },
+  bulletPoint: {
+    fontSize: 14,
+    fontFamily: FontFamily.regular,
+    lineHeight: 20,
   },
 });

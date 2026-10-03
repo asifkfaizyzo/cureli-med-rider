@@ -1,7 +1,8 @@
 // src/components/home/RiderHeader.tsx (do not remove this comment)
 
-import React, { useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Image,
   Pressable,
@@ -16,13 +17,13 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTheme } from "../../theme/ThemeContext";
-import { FontFamily } from "../../theme/typography";
-import { useRiderOperationalStore } from "../../store/riderOperationalStore";
+import { getRiderPhotoUrl } from "../../features/auth/utils/avatar";
 import { useAvailabilityToggle } from "../../hooks/useAvailabilityToggle";
 import { useAuthStore } from "../../store/authStore";
+import { useRiderOperationalStore } from "../../store/riderOperationalStore";
+import { useTheme } from "../../theme/ThemeContext";
+import { FontFamily } from "../../theme/typography";
 import { AvailabilityToggle } from "./AvailabilityToggle";
-import { getRiderPhotoUrl } from "../../features/auth/utils/avatar";
 
 interface RiderHeaderProps {
   onHelpPress?: () => void;
@@ -31,6 +32,7 @@ interface RiderHeaderProps {
   hasUnreadNotifications?: boolean;
   collapsed?: boolean;
   onRequestExpand?: () => void;
+  onAvatarPress?: () => void;
 }
 
 const LOGO = require("../../../assets/images/cureli_rider_logo.png");
@@ -43,6 +45,7 @@ export function RiderHeader({
   hasUnreadNotifications = true,
   collapsed = false,
   onRequestExpand,
+  onAvatarPress,
 }: RiderHeaderProps) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
@@ -89,6 +92,14 @@ export function RiderHeader({
 
   const handleToggle = () => {
     if (!isToggling) toggleMutation.mutate(!isOnline);
+  };
+
+  const handleAvatarPress = () => {
+    if (onAvatarPress) {
+      onAvatarPress();
+    } else {
+      router.push("/(app)/personal-info");
+    }
   };
 
   const firstName = rider?.full_name?.trim()?.split(" ")?.[0] || "Rider";
@@ -140,7 +151,7 @@ export function RiderHeader({
             </Text>
           </View>
 
-          <View
+          <TouchableOpacity
             style={[
               styles.avatar,
               {
@@ -148,6 +159,11 @@ export function RiderHeader({
                 borderColor: colors.brand.soft,
               },
             ]}
+            onPress={handleAvatarPress}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="View Profile"
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
             {photoUrl && !imageError ? (
               <Image
@@ -157,11 +173,13 @@ export function RiderHeader({
                 onError={() => setImageError(true)}
               />
             ) : (
-              <Text style={[styles.avatarText, { color: colors.brand.primary }]}>
+              <Text
+                style={[styles.avatarText, { color: colors.brand.primary }]}
+              >
                 {initial}
               </Text>
             )}
-          </View>
+          </TouchableOpacity>
         </Pressable>
       </Animated.View>
 
@@ -173,7 +191,7 @@ export function RiderHeader({
           onToggle={handleToggle}
         />
 
-        <View style={styles.actions}>
+        {/* <View style={styles.actions}>
           <TouchableOpacity
             style={[
               styles.helpButton,
@@ -242,7 +260,7 @@ export function RiderHeader({
               />
             )}
           </TouchableOpacity>
-        </View>
+        </View> */}
       </View>
     </View>
   );

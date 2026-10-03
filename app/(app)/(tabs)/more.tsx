@@ -123,11 +123,11 @@ export default function MoreScreen() {
     //   icon: "notifications-outline",
     //   onPress: () => handleMenuPress("Notifications"),
     // },
-    {
-      label: "Wallet & Banking",
-      icon: "card-outline",
-      onPress: () => handleMenuPress("KYC & Bank"),
-    },
+    // {
+    //   label: "Wallet & Banking",
+    //   icon: "card-outline",
+    //   onPress: () => handleMenuPress("KYC & Bank"),
+    // },
     {
       label: "Delivery History",
       icon: "receipt-outline",
@@ -147,11 +147,11 @@ export default function MoreScreen() {
 
   // Group 2: Support & Legal Menu Data
   const supportItems: MenuItem[] = [
-    {
-      label: "Help Center & FAQ",
-      icon: "help-circle-outline",
-      onPress: () => handleMenuPress("Help Center & FAQ"),
-    },
+    // {
+    //   label: "Help Center & FAQ",
+    //   icon: "help-circle-outline",
+    //   onPress: () => handleMenuPress("Help Center & FAQ"),
+    // },
     {
       label: "Terms & Conditions",
       icon: "document-lock-outline",

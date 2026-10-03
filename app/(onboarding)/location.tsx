@@ -1,9 +1,8 @@
 // app/(onboarding)/location.tsx (do not remove this comment)
-//app\(onboarding)\location.tsx
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -16,15 +15,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import cityListData from "../../assets/data/cityList.json";
+import { BackgroundLocationDisclosure } from "../../src/components/BackgroundLocationDisclosure";
 import { useDialog } from "../../src/components/Dialog/DialogProvider";
 import { OnboardingWrapper } from "../../src/components/OnboardingWrapper";
 import { onboardingApi } from "../../src/features/onboarding/api/onboarding.api";
 import { useAuthStore } from "../../src/store/authStore";
 import { useTheme } from "../../src/theme/ThemeContext";
 import { FontFamily } from "../../src/theme/typography";
-
-// Import your localized city list JSON
-import cityListData from "../../assets/data/cityList.json";
 
 interface CityItem {
   city: string;
@@ -56,8 +54,13 @@ export default function LocationScreen() {
 
   // City Autocomplete suggestions
   const [suggestions, setSuggestions] = useState<CityItem[]>([]);
-
   const [touched, setTouched] = useState({ city: false, address: false });
+
+  // ── Prominent Disclosure State ──────────────────────────────
+  const [showDisclosure, setShowDisclosure] = useState(false);
+  const disclosureResolveRef = useRef<((consented: boolean) => void) | null>(
+    null,
+  );
 
   // ── Load existing data ──────────────────────────────────
   useEffect(() => {
@@ -86,7 +89,6 @@ export default function LocationScreen() {
   const isAddressValid = address.trim().length >= 5;
   const formIsValid = isCityValid && isAddressValid;
 
-  // Handle City input changes and update suggestions
   const handleCityChange = (text: string) => {
     setCity(text);
     if (error) setError(null);
@@ -94,14 +96,13 @@ export default function LocationScreen() {
     if (text.trim().length > 0) {
       const filtered = cityListData
         .filter((item) => item.city.toLowerCase().includes(text.toLowerCase()))
-        .slice(0, 5); // Limit to top 5 matches
+        .slice(0, 5);
       setSuggestions(filtered);
     } else {
       setSuggestions([]);
     }
   };
 
-  // When user selects a city from suggestion dropdown
   const handleSelectCity = (selectedCity: string) => {
     setCity(selectedCity);
     setSuggestions([]);
@@ -109,21 +110,40 @@ export default function LocationScreen() {
     Keyboard.dismiss();
   };
 
+  // Triggered when user taps "Use current location"
   async function useCurrentLocation() {
     Keyboard.dismiss();
-    setLocating(true);
-    try {
+
+    // 1. Check if foreground permission is already granted
+    const { status: existingStatus } =
+      await Location.getForegroundPermissionsAsync();
+
+    if (existingStatus !== "granted") {
+      // 2. SHOW PROMINENT FOREGROUND DISCLOSURE FIRST
+      const userConsented = await new Promise<boolean>((resolve) => {
+        disclosureResolveRef.current = resolve;
+        setShowDisclosure(true);
+      });
+
+      if (!userConsented) {
+        return; // User tapped Deny
+      }
+
+      // 3. ONLY NOW REQUEST PERMISSION
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         dialog.alert({
           title: "Permission Required",
           message:
-            "Please enable location permissions in your device settings.",
+            "Please enable location permissions in device settings to auto-fill address.",
           icon: "location-off",
         });
         return;
       }
+    }
 
+    setLocating(true);
+    try {
       const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
@@ -153,7 +173,8 @@ export default function LocationScreen() {
     } catch {
       dialog.alert({
         title: "Location Error",
-        message: "Could not fetch your current location.",
+        message:
+          "Could not fetch your current location. Please enter manually.",
         icon: "error-outline",
         destructive: true,
       });
@@ -231,7 +252,7 @@ export default function LocationScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            {/* City Container with zIndex to handle suggestions overlay */}
+            {/* City */}
             <View style={[styles.inputContainer, styles.cityContainer]}>
               <Text style={[styles.label, { color: colors.text.secondary }]}>
                 Current City *
@@ -268,7 +289,6 @@ export default function LocationScreen() {
                   onBlur={() => {
                     setIsCityFocused(false);
                     setTouched((p) => ({ ...p, city: true }));
-                    // Delayed suggestions clearing to register click handlers first
                     setTimeout(() => setSuggestions([]), 200);
                   }}
                   autoCapitalize="words"
@@ -284,7 +304,7 @@ export default function LocationScreen() {
                 )}
               </View>
 
-              {/* Suggestions Dropdown Overlay */}
+              {/* Suggestions */}
               {isCityFocused && suggestions.length > 0 && (
                 <View
                   style={[
@@ -588,6 +608,22 @@ export default function LocationScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Prominent Foreground Disclosure Modal */}
+      <BackgroundLocationDisclosure
+        visible={showDisclosure}
+        type="foreground"
+        onAccept={() => {
+          setShowDisclosure(false);
+          disclosureResolveRef.current?.(true);
+          disclosureResolveRef.current = null;
+        }}
+        onDecline={() => {
+          setShowDisclosure(false);
+          disclosureResolveRef.current?.(false);
+          disclosureResolveRef.current = null;
+        }}
+      />
     </OnboardingWrapper>
   );
 }
@@ -611,7 +647,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, fontFamily: FontFamily.regular, lineHeight: 22 },
   formGroup: { gap: 18 },
   inputContainer: { gap: 6, position: "relative" },
-  cityContainer: { zIndex: 999 }, // High zIndex so suggestions float over Address
+  cityContainer: { zIndex: 999 },
   labelRow: {
     flexDirection: "row",
     alignItems: "center",

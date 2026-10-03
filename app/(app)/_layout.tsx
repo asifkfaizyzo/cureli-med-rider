@@ -1,8 +1,11 @@
 // app/(app)/_layout.tsx (do not remove this comment)
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Redirect, Stack } from "expo-router";
-import { BackgroundLocationDisclosure } from "../../src/components/BackgroundLocationDisclosure";
-import { setBgDisclosureHandler } from "../../src/services/locationService";
+import {
+  BackgroundLocationDisclosure,
+  DisclosureType,
+} from "../../src/components/BackgroundLocationDisclosure";
+import { setLocationDisclosureHandler } from "../../src/services/locationService";
 import { useLocationTracking } from "../../src/hooks/useLocationTracking";
 import { useSSEConnection } from "../../src/hooks/useSSEConnection";
 import { useDeliveryEvents } from "../../src/hooks/useDeliveryEvents";
@@ -29,34 +32,33 @@ import { isDeliveryLocked } from "../../src/utils/deliveryStatus";
  * ─────────────────────────────────────────────────────────────────────
  */
 function ProtectedLayout() {
-  // ── Background Location Disclosure ──────────────────────────
-  const [showBgDisclosure, setShowBgDisclosure] = useState(false);
-  const bgResolveRef = useRef<((value: boolean) => void) | null>(null);
+  // ── Dynamic Location Disclosure State ────────────────────────
+  const [showDisclosure, setShowDisclosure] = useState(false);
+  const [disclosureType, setDisclosureType] = useState<DisclosureType>("background");
+  const resolveRef = useRef<((value: boolean) => void) | null>(null);
 
   useEffect(() => {
-    // Register the handler that locationService will call
-    // before requesting background permission
-    setBgDisclosureHandler(() => {
+    setLocationDisclosureHandler((type: DisclosureType) => {
       return new Promise<boolean>((resolve) => {
-        bgResolveRef.current = resolve;
-        setShowBgDisclosure(true);
+        resolveRef.current = resolve;
+        setDisclosureType(type);
+        setShowDisclosure(true);
       });
     });
 
-    // Cleanup on unmount
-    return () => setBgDisclosureHandler(null);
+    return () => setLocationDisclosureHandler(null);
   }, []);
 
-  const handleBgAccept = useCallback(() => {
-    setShowBgDisclosure(false);
-    bgResolveRef.current?.(true);
-    bgResolveRef.current = null;
+  const handleAccept = useCallback(() => {
+    setShowDisclosure(false);
+    resolveRef.current?.(true);
+    resolveRef.current = null;
   }, []);
 
-  const handleBgDecline = useCallback(() => {
-    setShowBgDisclosure(false);
-    bgResolveRef.current?.(false);
-    bgResolveRef.current = null;
+  const handleDecline = useCallback(() => {
+    setShowDisclosure(false);
+    resolveRef.current?.(false);
+    resolveRef.current = null;
   }, []);
   // ────────────────────────────────────────────────────────────
 
@@ -73,9 +75,10 @@ function ProtectedLayout() {
       <>
         <DeliveryHydrationGate />
         <BackgroundLocationDisclosure
-          visible={showBgDisclosure}
-          onAccept={handleBgAccept}
-          onDecline={handleBgDecline}
+          visible={showDisclosure}
+          type={disclosureType}
+          onAccept={handleAccept}
+          onDecline={handleDecline}
         />
       </>
     );
@@ -86,9 +89,10 @@ function ProtectedLayout() {
       <>
         <ActiveDeliveryScreen />
         <BackgroundLocationDisclosure
-          visible={showBgDisclosure}
-          onAccept={handleBgAccept}
-          onDecline={handleBgDecline}
+          visible={showDisclosure}
+          type={disclosureType}
+          onAccept={handleAccept}
+          onDecline={handleDecline}
         />
       </>
     );
@@ -103,11 +107,12 @@ function ProtectedLayout() {
       {/* Global incoming order alert popup */}
       <IncomingOrderOverlay />
 
-      {/* Background Location Disclosure Modal */}
+      {/* Prominent Location Disclosure Modal (Dynamic FG & BG) */}
       <BackgroundLocationDisclosure
-        visible={showBgDisclosure}
-        onAccept={handleBgAccept}
-        onDecline={handleBgDecline}
+        visible={showDisclosure}
+        type={disclosureType}
+        onAccept={handleAccept}
+        onDecline={handleDecline}
       />
     </>
   );

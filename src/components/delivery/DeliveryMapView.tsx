@@ -15,8 +15,8 @@ import { lightMapStyle, darkMapStyle } from "../../constants/mapStyle";
 import type { DeliveryLeg } from "../../utils/deliveryStatus";
 
 const DEFAULT_REGION = {
-  latitude: 12.9716,
-  longitude: 77.5946,
+  latitude: 9.9312,
+  longitude: 76.2673,
   latitudeDelta: 0.05,
   longitudeDelta: 0.05,
 };
