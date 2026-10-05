@@ -20,6 +20,17 @@ export type MarketplaceOrderStatus =
   | "REJECTED"
   | "CANCELLED";
 
+// ── NEW: Shared earnings summary interface ──────────────────────────
+export interface OrderEarningsSummary {
+  base_earning: number;      // pickup_fee + drop_fee + floor_topup_fee
+  pickup_fee: number;
+  drop_fee: number;
+  surge_fee: number;
+  floor_topup_fee: number;
+  tip_amount: number;
+  total_earning: number;     // base_earning + surge_fee + tip_amount
+}
+
 export interface IncomingOrderAlert {
   delivery_id: string;
   order_id: string;
@@ -31,6 +42,10 @@ export interface IncomingOrderAlert {
   pickup_lat: number | null;
   pickup_lng: number | null;
   estimated_distance_km: number | null;
+  drop_distance_km?: number | null;         // ── NEW
+  total_distance_km?: number | null;        // ── NEW
+  rider_type?: "INDEPENDENT" | "TEAM";      // ── NEW
+  earnings?: OrderEarningsSummary | null;   // ── NEW
   timestamp: string;
 }
 
@@ -71,6 +86,8 @@ export interface ActiveDelivery {
   payment_method: string;
   item_count: number;
   items: DeliveryOrderItem[];
+  rider_type?: "INDEPENDENT" | "TEAM";      // ── NEW
+  earnings?: OrderEarningsSummary;          // ── NEW
   pharmacy: ActiveDeliveryPharmacy;
   customer: ActiveDeliveryCustomer | null;
   timestamps: {

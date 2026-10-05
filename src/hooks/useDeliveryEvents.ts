@@ -17,20 +17,14 @@ export function useDeliveryEvents() {
   const setSyncError = useDeliveryStore((s) => s.setSyncError);
   const resyncNonce = useDeliveryStore((s) => s.resyncNonce);
 
-  // Reset hydration flag whenever we leave the authenticated state (logout),
-  // so the NEXT login re-runs the fail-closed gate instead of trusting a
-  // stale "already synced" flag from a previous rider's session.
+  // Reset hydration flag whenever leaving authenticated state
   useEffect(() => {
     if (status !== "authenticated") {
       useDeliveryStore.setState({ hasSyncedDelivery: false, syncError: null });
     }
   }, [status]);
 
-  // Sync active delivery on mount / reconnect / manual retry.
-  // Fail-CLOSED: hasSyncedDelivery only becomes true on success. On failure
-  // we surface syncError and leave hasSyncedDelivery false, so the app-level
-  // hydration gate stays up with a retry option rather than assuming "no
-  // active delivery" and letting the rider navigate freely.
+  // Sync active delivery on mount / reconnect / manual retry
   useEffect(() => {
     if (status !== "authenticated") return;
 
@@ -53,6 +47,8 @@ export function useDeliveryEvents() {
               pickup_lat: delivery.pharmacy.latitude,
               pickup_lng: delivery.pharmacy.longitude,
               estimated_distance_km: null,
+              rider_type: delivery.rider_type,       // ── NEW: Hydration mapping
+              earnings: delivery.earnings || null,    // ── NEW: Hydration mapping
               timestamp: delivery.timestamps.assigned_at || new Date().toISOString(),
             });
           } else {

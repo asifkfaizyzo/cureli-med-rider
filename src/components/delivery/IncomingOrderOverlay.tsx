@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { deliveryApi } from "../../features/delivery/api/delivery.api";
 import { useDeliveryStore } from "../../store/deliveryStore";
+import { useAuthStore } from "../../store/authStore";
 import { useTheme } from "../../theme/ThemeContext";
 import { useDialog } from "../Dialog/DialogProvider";
 
@@ -37,6 +38,7 @@ export const IncomingOrderOverlay: React.FC = () => {
   const incomingAlert = useDeliveryStore((s) => s.incomingAlert);
   const clearAlert = useDeliveryStore((s) => s.clearAlert);
   const setActiveDelivery = useDeliveryStore((s) => s.setActiveDelivery);
+  const loggedInRider = useAuthStore((s) => s.rider);
 
   // ── Elapsed timer (informational only — no auto-action) ──────────────
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -118,7 +120,6 @@ export const IncomingOrderOverlay: React.FC = () => {
   const handleDecline = async (reason = "Rider declined") => {
     if (!incomingAlert || isDeclining) return;
 
-    // Confirm before declining with DialogProvider
     const confirmed = await dialog.confirm({
       title: "Decline Order?",
       message: "Are you sure you want to decline this delivery?",
@@ -207,6 +208,15 @@ export const IncomingOrderOverlay: React.FC = () => {
     incomingAlert.shop_name || incomingAlert.pharmacy_name || "Pharmacy";
   const branchDisplayName = incomingAlert.branch_name;
 
+  // ── Resolve Rider Type & Earnings ──────────────────────────────────────
+  const riderType =
+    incomingAlert.rider_type || loggedInRider?.rider_type || "INDEPENDENT";
+  const isIndependent = riderType === "INDEPENDENT";
+  const earnings = incomingAlert.earnings;
+
+  const hasSurge = Boolean(earnings && earnings.surge_fee > 0);
+  const hasTip = Boolean(earnings && earnings.tip_amount > 0);
+
   return (
     <Modal visible={true} transparent={true} animationType="slide">
       <View style={[styles.backdrop, { backgroundColor: colors.overlay.dark }]}>
@@ -268,6 +278,71 @@ export const IncomingOrderOverlay: React.FC = () => {
           <Text style={[styles.orderNumber, { color: colors.text.muted }]}>
             #{incomingAlert.order_number}
           </Text>
+
+          {/* ── INDEPENDENT RIDER: HERO EARNING CARD ─────────────────────── */}
+          {isIndependent && earnings ? (
+            <View
+              style={[
+                styles.earningCard,
+                {
+                  backgroundColor: colors.background.tint,
+                  borderColor: colors.border.subtle,
+                },
+              ]}
+            >
+              <Text style={[styles.earningLabel, { color: colors.text.muted }]}>
+                ESTIMATED EARNING
+              </Text>
+
+              <Text style={[styles.earningValue, { color: colors.brand.primary }]}>
+                ₹{earnings.base_earning.toFixed(2)}
+              </Text>
+
+              {/* Bonus Sub-Chips (Surge + Tip) */}
+              {(hasSurge || hasTip) && (
+                <View style={styles.bonusChipsRow}>
+                  {hasSurge && (
+                    <View
+                      style={[
+                        styles.bonusChip,
+                        { backgroundColor: colors.brand.primary + "18" },
+                      ]}
+                    >
+                      <Ionicons
+                        name="flash"
+                        size={11}
+                        color={colors.brand.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.bonusChipText,
+                          { color: colors.brand.primary },
+                        ]}
+                      >
+                        + ₹{earnings.surge_fee} surge
+                      </Text>
+                    </View>
+                  )}
+
+                  {hasTip && (
+                    <View
+                      style={[
+                        styles.bonusChip,
+                        { backgroundColor: "#10B9811A" },
+                      ]}
+                    >
+                      <Ionicons name="heart" size={11} color="#10B981" />
+                      <Text
+                        style={[styles.bonusChipText, { color: "#10B981" }]}
+                      >
+                        + ₹{earnings.tip_amount} tip
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          ) : null}
 
           <View style={[styles.divider, { backgroundColor: colors.border.subtle }]} />
 
@@ -443,10 +518,56 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     marginTop: 4,
   },
+
+  // ── NEW: Earning Hero Card Styles ─────────────────────────────────
+  earningCard: {
+    width: "100%",
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  earningLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  earningValue: {
+    fontSize: 32,
+    fontWeight: "900",
+    letterSpacing: -0.5,
+    marginVertical: 2,
+  },
+  bonusChipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 6,
+  },
+  bonusChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  bonusChipText: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
+
   divider: {
     height: 1,
     width: "100%",
-    marginVertical: 16,
+    marginVertical: 14,
   },
   infoRow: {
     flexDirection: "row",
@@ -484,8 +605,8 @@ const styles = StyleSheet.create({
   pharmacyAddress: {
     fontSize: 12,
     textAlign: "center",
-    marginTop: 8,
-    marginBottom: 20,
+    marginTop: 6,
+    marginBottom: 16,
     paddingHorizontal: 14,
     lineHeight: 16,
   },
