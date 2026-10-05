@@ -1,4 +1,4 @@
-// cureli-rider-app/app/(app)/(tabs)/more.tsx (do not remove this comment)
+// app/(app)/(tabs)/more.tsx (do not remove this comment)
 
 import Constants from "expo-constants";
 import { router } from "expo-router";
@@ -140,6 +140,11 @@ export default function MoreScreen() {
     //   icon: "card-outline",
     //   onPress: () => handleMenuPress("KYC & Bank"),
     // },
+    {
+      label: "Payout History",
+      icon: "wallet-outline",
+      onPress: () => router.push("/(app)/payout-history"),
+    },
     {
       label: "Delivery History",
       icon: "receipt-outline",

@@ -1,43 +1,39 @@
 // app/(app)/(tabs)/wallet.tsx (do not remove this comment)
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
-  RefreshControl,
-  NativeSyntheticEvent,
   NativeScrollEvent,
+  NativeSyntheticEvent,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useTheme } from "../../../src/theme/ThemeContext";
-import type { ColorPalette } from "../../../src/theme/colors";
+import EarningsOverview from "../../../src/components/earnings/EarningsOverview";
+import OrderEarningsCard from "../../../src/components/earnings/OrderEarningsCard";
+import PayoutDetailModal from "../../../src/components/earnings/PayoutDetailModal";
+import PayoutHistoryCard from "../../../src/components/earnings/PayoutHistoryCard";
+import WeeklyBarChart from "../../../src/components/earnings/WeeklyBarChart";
+import WeeklyEarningsBreakdownCard from "../../../src/components/earnings/WeeklyEarningsBreakdownCard";
+import { HistoryDetailModal } from "../../../src/components/history/HistoryDetailModal";
+import { deliveryApi } from "../../../src/features/delivery/api/delivery.api";
 import {
   useEarningsOverview,
-  useWeeklyEarnings,
   useOrderEarnings,
   usePayoutHistory,
+  useWeeklyEarnings,
 } from "../../../src/hooks/useEarnings";
+import { useTheme } from "../../../src/theme/ThemeContext";
+import type { ColorPalette } from "../../../src/theme/colors";
+import type { DeliveryHistoryDetail } from "../../../src/types/delivery";
 import type {
   OrderEarningsItem,
   PayoutHistoryItem,
 } from "../../../src/types/earnings";
-import WeeklyBarChart from "../../../src/components/earnings/WeeklyBarChart";
-import EarningsOverview from "../../../src/components/earnings/EarningsOverview";
-import OrderEarningsCard from "../../../src/components/earnings/OrderEarningsCard";
-import PayoutHistoryCard from "../../../src/components/earnings/PayoutHistoryCard";
-import { HistoryDetailModal } from "../../../src/components/history/HistoryDetailModal";
-
-const DetailModal = HistoryDetailModal as React.ComponentType<{
-  visible: boolean;
-  onClose: () => void;
-  deliveryId?: string | null;
-  delivery_id?: string | null;
-  id?: string | null;
-}>;
 
 // ── Date Helpers ─────────────────────────────────────────────
 
@@ -51,14 +47,7 @@ function getCurrentWeekMonday(): string {
   // 6AM shift boundary
   if (
     now <
-    new Date(
-      monday.getFullYear(),
-      monday.getMonth(),
-      monday.getDate(),
-      6,
-      0,
-      0,
-    )
+    new Date(monday.getFullYear(), monday.getMonth(), monday.getDate(), 6, 0, 0)
   ) {
     monday.setDate(monday.getDate() - 7);
   }
@@ -93,10 +82,18 @@ export default function EarningsScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>("orders");
   const [orderPage, setOrderPage] = useState(1);
   const [payoutPage, setPayoutPage] = useState(1);
-  const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(
+
+  // Detail modal state — delivery history
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailData, setDetailData] = useState<DeliveryHistoryDetail | null>(
     null,
   );
-  const [detailVisible, setDetailVisible] = useState(false);
+
+  // Payout detail modal state
+  const [payoutDetailVisible, setPayoutDetailVisible] = useState(false);
+  const [selectedPayout, setSelectedPayout] =
+    useState<PayoutHistoryItem | null>(null);
 
   // Reset order page and list when filters change
   useEffect(() => {
@@ -181,9 +178,36 @@ export default function EarningsScreen() {
     setSelectedDay(date);
   }, []);
 
-  const handleOrderPress = useCallback((deliveryId: string) => {
-    setSelectedDeliveryId(deliveryId);
+  // Fetch detail from existing delivery history endpoint, then open modal
+  const handleOrderPress = useCallback(async (deliveryId: string) => {
+    setDetailData(null);
+    setDetailLoading(true);
     setDetailVisible(true);
+    try {
+      const detail = await deliveryApi.getDeliveryHistoryDetail(deliveryId);
+      setDetailData(detail);
+    } catch (err) {
+      console.error("Failed to fetch delivery detail:", err);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  const handleCloseDetail = useCallback(() => {
+    setDetailVisible(false);
+    setDetailData(null);
+    setDetailLoading(false);
+  }, []);
+
+  // Payout detail handlers
+  const handlePayoutPress = useCallback((payout: PayoutHistoryItem) => {
+    setSelectedPayout(payout);
+    setPayoutDetailVisible(true);
+  }, []);
+
+  const handleClosePayoutDetail = useCallback(() => {
+    setPayoutDetailVisible(false);
+    setSelectedPayout(null);
   }, []);
 
   const handleLoadMoreOrders = useCallback(() => {
@@ -211,8 +235,7 @@ export default function EarningsScreen() {
       const { layoutMeasurement, contentOffset, contentSize } =
         event.nativeEvent;
       const isCloseToBottom =
-        layoutMeasurement.height + contentOffset.y >=
-        contentSize.height - 100;
+        layoutMeasurement.height + contentOffset.y >= contentSize.height - 100;
 
       if (isCloseToBottom) {
         if (activeTab === "orders") {
@@ -283,14 +306,17 @@ export default function EarningsScreen() {
           bestDay={weekly.data?.best_day ?? null}
           isLoading={weekly.isLoading}
         />
+        {/* Weekly Earnings Breakdown */}
+        <WeeklyEarningsBreakdownCard
+          breakdown={overview.data?.current_week_breakdown}
+          deltaPct={overview.data?.current_week.delta_pct_vs_last_week ?? null}
+          isLoading={overview.isLoading}
+        />
 
         {/* Tab Switcher */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === "orders" && styles.tabActive,
-            ]}
+            style={[styles.tab, activeTab === "orders" && styles.tabActive]}
             onPress={() => setActiveTab("orders")}
             activeOpacity={0.7}
           >
@@ -304,10 +330,7 @@ export default function EarningsScreen() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === "payouts" && styles.tabActive,
-            ]}
+            style={[styles.tab, activeTab === "payouts" && styles.tabActive]}
             onPress={() => setActiveTab("payouts")}
             activeOpacity={0.7}
           >
@@ -334,10 +357,7 @@ export default function EarningsScreen() {
             ))}
             {orders.isLoading && orderPage === 1 ? (
               <View style={styles.listCenter}>
-                <ActivityIndicator
-                  size="small"
-                  color={colors.brand.primary}
-                />
+                <ActivityIndicator size="small" color={colors.brand.primary} />
                 <Text style={styles.loadingText}>Loading orders...</Text>
               </View>
             ) : allOrders.length === 0 && !orders.isLoading ? (
@@ -350,10 +370,7 @@ export default function EarningsScreen() {
             ) : null}
             {orders.isFetching && orderPage > 1 && (
               <View style={styles.listFooter}>
-                <ActivityIndicator
-                  size="small"
-                  color={colors.brand.primary}
-                />
+                <ActivityIndicator size="small" color={colors.brand.primary} />
               </View>
             )}
             {orders.data &&
@@ -370,14 +387,12 @@ export default function EarningsScreen() {
               <PayoutHistoryCard
                 key={payout.payout_id}
                 payout={payout}
+                onPress={() => handlePayoutPress(payout)}
               />
             ))}
             {payouts.isLoading && payoutPage === 1 ? (
               <View style={styles.listCenter}>
-                <ActivityIndicator
-                  size="small"
-                  color={colors.brand.primary}
-                />
+                <ActivityIndicator size="small" color={colors.brand.primary} />
                 <Text style={styles.loadingText}>Loading payouts...</Text>
               </View>
             ) : allPayouts.length === 0 && !payouts.isLoading ? (
@@ -390,10 +405,7 @@ export default function EarningsScreen() {
             ) : null}
             {payouts.isFetching && payoutPage > 1 && (
               <View style={styles.listFooter}>
-                <ActivityIndicator
-                  size="small"
-                  color={colors.brand.primary}
-                />
+                <ActivityIndicator size="small" color={colors.brand.primary} />
               </View>
             )}
             {payouts.data &&
@@ -410,106 +422,110 @@ export default function EarningsScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Detail Modal */}
-      <DetailModal
+      {/* Delivery Detail Modal */}
+      <HistoryDetailModal
         visible={detailVisible}
-        deliveryId={selectedDeliveryId}
-        delivery_id={selectedDeliveryId}
-        id={selectedDeliveryId}
-        onClose={() => {
-          setDetailVisible(false);
-          setSelectedDeliveryId(null);
-        }}
+        loading={detailLoading}
+        detail={detailData}
+        onClose={handleCloseDetail}
+      />
+
+      {/* Payout Detail Modal */}
+      <PayoutDetailModal
+        visible={payoutDetailVisible}
+        payout={selectedPayout}
+        onClose={handleClosePayoutDetail}
       />
     </SafeAreaView>
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────
+// ── Styles ────────────────────────────────────────────────
 
-const getStyles = (colors: ColorPalette) => StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background.page,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 12,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: colors.text.primary,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 24,
-  },
-  tabContainer: {
-    flexDirection: "row",
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 12,
-    backgroundColor: colors.background.accent,
-    borderRadius: 10,
-    padding: 3,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 8,
-  },
-  tabActive: {
-    backgroundColor: colors.background.card,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.tab.inactive,
-  },
-  tabTextActive: {
-    color: colors.tab.active,
-  },
-  listCenter: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-  },
-  loadingText: {
-    fontSize: 13,
-    color: colors.text.muted,
-    marginTop: 8,
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.text.primary,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: colors.text.muted,
-    marginTop: 4,
-    textAlign: "center",
-  },
-  listFooter: {
-    paddingVertical: 20,
-    alignItems: "center",
-  },
-  endText: {
-    fontSize: 12,
-    color: colors.text.faint,
-  },
-  bottomSpacer: {
-    height: 40,
-  },
-});
+const getStyles = (colors: ColorPalette) =>
+  StyleSheet.create({
+    safe: {
+      flex: 1,
+      backgroundColor: colors.background.page,
+    },
+    header: {
+      paddingHorizontal: 20,
+      paddingTop: 8,
+      paddingBottom: 12,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: "700",
+      color: colors.text.primary,
+    },
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingBottom: 24,
+    },
+    tabContainer: {
+      flexDirection: "row",
+      marginHorizontal: 16,
+      marginTop: 16,
+      marginBottom: 12,
+      backgroundColor: colors.background.accent,
+      borderRadius: 10,
+      padding: 3,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: "center",
+      borderRadius: 8,
+    },
+    tabActive: {
+      backgroundColor: colors.background.card,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    tabText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.tab.inactive,
+    },
+    tabTextActive: {
+      color: colors.tab.active,
+    },
+    listCenter: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 48,
+      paddingHorizontal: 24,
+    },
+    loadingText: {
+      fontSize: 13,
+      color: colors.text.muted,
+      marginTop: 8,
+    },
+    emptyTitle: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: colors.text.primary,
+    },
+    emptySubtitle: {
+      fontSize: 13,
+      color: colors.text.muted,
+      marginTop: 4,
+      textAlign: "center",
+    },
+    listFooter: {
+      paddingVertical: 20,
+      alignItems: "center",
+    },
+    endText: {
+      fontSize: 12,
+      color: colors.text.faint,
+    },
+    bottomSpacer: {
+      height: 40,
+    },
+  });

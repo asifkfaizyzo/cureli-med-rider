@@ -14,6 +14,7 @@ import { useRiderOperationalStore } from "../../store/riderOperationalStore";
 import { useTheme } from "../../theme/ThemeContext";
 import { FontFamily } from "../../theme/typography";
 import { ActiveIncentiveCard } from "./ActiveIncentiveCard";
+import { IncentiveSection } from "./IncentiveSection";
 import { EarningsBreakdownCard } from "./EarningsBreakdownCard";
 import { EmptyStateCard } from "./EmptyStateCard";
 import { MonthlyStatsCard } from "./MonthlyStatsCard";
@@ -35,7 +36,7 @@ export function OfflineDashboard() {
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background.page }]}>
         <ActivityIndicator size="large" color={colors.brand.primary} />
       </View>
     );
@@ -56,10 +57,7 @@ export function OfflineDashboard() {
     );
   }
 
-  // Defensive activity check
   const todayDeliveries = dashboard.today?.deliveries_completed ?? 0;
-  const weekDeliveries = dashboard.week?.deliveries_completed ?? 0;
-  const hasAnyActivity = todayDeliveries > 0 || weekDeliveries > 0;
 
   return (
     <ScrollView
@@ -100,7 +98,7 @@ export function OfflineDashboard() {
                 color={colors.status.warning}
               />
             </View>
-            <View>
+            <View style={styles.bannerTextContainer}>
               <View style={styles.offlineRow}>
                 <Text style={[styles.bannerTitle, { color: colors.text.primary }]}>
                   Currently Offline
@@ -125,104 +123,84 @@ export function OfflineDashboard() {
         <SurgeBanner surge={dashboard.surge} isOnline={isOnline} />
       )}
 
-      {hasAnyActivity ? (
-        <>
-          {/* ── Top Stats Row ──────────────────────────────── */}
-          {isIndependent && dashboard.earnings ? (
-            <StatCardRow
-              leftIcon="cash-outline"
-              leftLabel="Today's Earnings"
-              leftValue={`₹${(dashboard.earnings.today?.total ?? 0).toFixed(0)}`}
-              leftSubtitle={`${(dashboard.today?.online_hours ?? 0).toFixed(1)}h online`}
-              leftVariant="success"
-              rightIcon="bicycle-outline"
-              rightLabel="Deliveries"
-              rightValue={todayDeliveries}
-              rightSubtitle={
-                todayDeliveries > 0
-                  ? `₹${(dashboard.earnings.today?.per_order_avg ?? 0).toFixed(0)}/order`
-                  : "No deliveries yet"
-              }
-              rightVariant="info"
-            />
-          ) : (
-            <StatCardRow
-              leftIcon="bicycle-outline"
-              leftLabel="Deliveries"
-              leftValue={todayDeliveries}
-              leftSubtitle={`${(dashboard.today?.online_hours ?? 0).toFixed(1)}h online`}
-              leftVariant="info"
-              rightIcon="time-outline"
-              rightLabel="Online Hours"
-              rightValue={`${(dashboard.today?.online_hours ?? 0).toFixed(1)}h`}
-              rightSubtitle={
-                (dashboard.today?.tips ?? 0) > 0
-                  ? `₹${dashboard.today.tips.toFixed(0)} in tips`
-                  : "No tips yet"
-              }
-              rightVariant="default"
-            />
-          )}
-
-          {/* ── INDEPENDENT: Earnings Breakdown ────────────── */}
-          {isIndependent && dashboard.earnings?.today && (
-            <EarningsBreakdownCard earnings={dashboard.earnings.today} />
-          )}
-
-          {/* ── Order Performance (both types) ─────────────── */}
-          {dashboard.orders && <OrderStatsCard orders={dashboard.orders} />}
-
-          {/* ── INDEPENDENT: Active Incentives ─────────────── */}
-          {isIndependent &&
-            dashboard.active_incentives &&
-            dashboard.active_incentives.length > 0 &&
-            dashboard.active_incentives.map((incentive) => (
-              <ActiveIncentiveCard
-                key={incentive.schedule_id}
-                incentive={incentive}
-              />
-            ))}
-
-          {/* ── Yesterday Comparison ───────────────────────── */}
-          {dashboard.yesterday && (
-            <YesterdayComparisonCard
-              yesterday={dashboard.yesterday}
-              showEarnings={isIndependent}
-            />
-          )}
-
-          {/* ── INDEPENDENT: Payout Status ─────────────────── */}
-          {isIndependent && dashboard.payout && (
-            <PayoutStatusCard payout={dashboard.payout} />
-          )}
-
-          {/* ── Weekly Summary (both types) ────────────────── */}
-          {dashboard.week && (
-            <WeeklySummaryCard
-              week={dashboard.week}
-              earnings={isIndependent ? dashboard.earnings?.week : undefined}
-            />
-          )}
-
-          {/* ── TEAM: Monthly Stats ────────────────────────── */}
-          {!isIndependent && dashboard.team?.month && (
-            <MonthlyStatsCard stats={dashboard.team.month} />
-          )}
-
-          {/* ── Rating (both types) ────────────────────────── */}
-          {dashboard.rating && <RatingCard rating={dashboard.rating} />}
-        </>
-      ) : (
-        <EmptyStateCard
-          icon="bicycle-outline"
-          title="Ready to Start?"
-          message={
-            isIndependent
-              ? "Toggle online and accept your first delivery to see your earnings here"
-              : "Toggle online and accept your first delivery to see your performance here"
+      {/* ── Top Stats Row ──────────────────────────────── */}
+      {isIndependent && dashboard.earnings ? (
+        <StatCardRow
+          leftIcon="cash-outline"
+          leftLabel="Today's Earnings"
+          leftValue={`₹${(dashboard.earnings.today?.total ?? 0).toFixed(0)}`}
+          leftSubtitle={`${(dashboard.today?.online_hours ?? 0).toFixed(1)}h online`}
+          leftVariant="success"
+          rightIcon="bicycle-outline"
+          rightLabel="Deliveries"
+          rightValue={todayDeliveries}
+          rightSubtitle={
+            todayDeliveries > 0
+              ? `₹${(dashboard.earnings.today?.per_order_avg ?? 0).toFixed(0)}/order`
+              : "No deliveries yet"
           }
+          rightVariant="info"
+        />
+      ) : (
+        <StatCardRow
+          leftIcon="bicycle-outline"
+          leftLabel="Deliveries"
+          leftValue={todayDeliveries}
+          leftSubtitle={`${(dashboard.today?.online_hours ?? 0).toFixed(1)}h online`}
+          leftVariant="info"
+          rightIcon="time-outline"
+          rightLabel="Online Hours"
+          rightValue={`${(dashboard.today?.online_hours ?? 0).toFixed(1)}h`}
+          rightSubtitle={
+            (dashboard.today?.tips ?? 0) > 0
+              ? `₹${dashboard.today.tips.toFixed(0)} in tips`
+              : "No tips yet"
+          }
+          rightVariant="default"
         />
       )}
+
+      {/* ── INDEPENDENT: Earnings Breakdown ────────────── */}
+      {isIndependent && dashboard.earnings?.today && (
+        <EarningsBreakdownCard earnings={dashboard.earnings.today} />
+      )}
+
+      {/* ── Order Performance ─────────────────────────── */}
+      {dashboard.orders && <OrderStatsCard orders={dashboard.orders} />}
+
+ {/* ── INDEPENDENT: Active Incentives ─────────────── */}
+ {isIndependent && (
+   <IncentiveSection incentives={dashboard.active_incentives} />
+ )}
+
+      {/* ── Yesterday Comparison ───────────────────────── */}
+      {dashboard.yesterday && (
+        <YesterdayComparisonCard
+          yesterday={dashboard.yesterday}
+          showEarnings={isIndependent}
+        />
+      )}
+
+      {/* ── INDEPENDENT: Payout Status ─────────────────── */}
+      {isIndependent && dashboard.payout && (
+        <PayoutStatusCard payout={dashboard.payout} />
+      )}
+
+      {/* ── Weekly Summary ─────────────────────────────── */}
+      {dashboard.week && (
+        <WeeklySummaryCard
+          week={dashboard.week}
+          earnings={isIndependent ? dashboard.earnings?.week : undefined}
+        />
+      )}
+
+      {/* ── TEAM: Monthly Stats ────────────────────────── */}
+      {!isIndependent && dashboard.team?.month && (
+        <MonthlyStatsCard stats={dashboard.team.month} />
+      )}
+
+      {/* ── Rating ─────────────────────────────────────── */}
+      {dashboard.rating && <RatingCard rating={dashboard.rating} />}
 
       {/* Bottom spacing for tab bar */}
       <View style={styles.bottomSpacer} />
@@ -263,6 +241,9 @@ const styles = StyleSheet.create({
     gap: 12,
     flex: 1,
   },
+  bannerTextContainer: {
+    flex: 1,
+  },
   iconContainer: {
     width: 32,
     height: 32,
@@ -290,7 +271,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.medium,
     lineHeight: 16,
     marginTop: 2,
-    paddingRight: 32, // Padding to ensure text fits clean
+    paddingRight: 16,
   },
   bottomSpacer: {
     height: 100,

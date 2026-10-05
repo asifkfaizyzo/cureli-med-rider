@@ -1,16 +1,18 @@
 // src/components/home/PayoutStatusCard.tsx (do not remove this comment)
+
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
 import { FontFamily } from "../../theme/typography";
 import type { PayoutSection } from "../../types/location";
+import type { PayoutStatus } from "../../types/earnings";
 
 interface PayoutStatusCardProps {
   payout?: PayoutSection;
 }
 
 const STATUS_CONFIG: Record<
-  string,
+  PayoutStatus,
   { icon: keyof typeof Ionicons.glyphMap; label: string }
 > = {
   PENDING: { icon: "time-outline", label: "Pending" },
@@ -39,7 +41,7 @@ export function PayoutStatusCard({ payout }: PayoutStatusCardProps) {
   const currentWeekEnd = formatShortDate(payout.current_week.week_end);
 
   const lastPayout = payout.last_payout;
-  const lastStatus = lastPayout?.status || "PENDING";
+  const lastStatus = (lastPayout?.status || "PENDING") as PayoutStatus;
   const statusCfg = STATUS_CONFIG[lastStatus] || STATUS_CONFIG.PENDING;
 
   const getStatusTheme = (status: string) => {
@@ -72,6 +74,12 @@ export function PayoutStatusCard({ payout }: PayoutStatusCardProps) {
   };
 
   const statusTheme = getStatusTheme(lastStatus);
+
+  // Net amount display logic
+  const lastNet = lastPayout?.net_amount ?? lastPayout?.gross_amount ?? 0;
+  const lastGross = lastPayout?.gross_amount ?? 0;
+  const grossDiffers =
+    lastPayout != null && Math.abs(lastGross - lastNet) > 0.01;
 
   return (
     <View
@@ -151,8 +159,13 @@ export function PayoutStatusCard({ payout }: PayoutStatusCardProps) {
 
           <View style={styles.lastPayoutRight}>
             <Text style={[styles.lastAmount, { color: colors.text.primary }]}>
-              ₹{(lastPayout.gross_amount ?? 0).toFixed(0)}
+              ₹{lastNet.toFixed(0)}
             </Text>
+            {grossDiffers && (
+              <Text style={[styles.lastGrossSub, { color: colors.text.muted }]}>
+                Gross ₹{lastGross.toFixed(0)}
+              </Text>
+            )}
             <View
               style={[
                 styles.statusBadge,
@@ -266,11 +279,15 @@ const styles = StyleSheet.create({
   },
   lastPayoutRight: {
     alignItems: "flex-end",
-    gap: 3,
+    gap: 2,
   },
   lastAmount: {
     fontSize: 14,
     fontFamily: FontFamily.semiBold,
+  },
+  lastGrossSub: {
+    fontSize: 10,
+    fontFamily: FontFamily.regular,
   },
   statusBadge: {
     flexDirection: "row",
@@ -280,6 +297,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 12,
     borderWidth: 1,
+    marginTop: 2,
   },
   statusText: {
     fontSize: 10,

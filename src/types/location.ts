@@ -1,5 +1,7 @@
 // src/types/location.ts (do not remove this comment)
+
 import type { RiderType } from "./auth";
+import type { PayoutStatus } from "./earnings";
 
 // ── Dashboard Types ──────────────────────────────────────────
 
@@ -98,8 +100,10 @@ export interface LastPayout {
   week_start: string;
   week_end: string;
   gross_amount: number;
-  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+  net_amount: number;
+  status: PayoutStatus;
   processed_at: string | null;
+  utr_reference: string | null;
 }
 
 // ── INDEPENDENT: Surge ───────────────────────────────────────

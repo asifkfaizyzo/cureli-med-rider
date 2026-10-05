@@ -1,6 +1,6 @@
 // src/components/home/OrderStatsCard.tsx (do not remove this comment)
-import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
 import { FontFamily } from "../../theme/typography";
 import type { OrderActionStats } from "../../types/location";
@@ -38,27 +38,47 @@ export function OrderStatsCard({ orders }: OrderStatsCardProps) {
     },
   ];
 
-  const acceptanceRate = Math.min(
-    Math.max(orders.acceptance_rate ?? 100, 0),
-    100,
-  );
-  const completionRate = Math.min(
-    Math.max(orders.completion_rate ?? 100, 0),
-    100,
-  );
+  // ── Determine valid tracking states ───────────────────────────
+  const totalAssignments = (orders.accepted ?? 0) + (orders.denied ?? 0);
+  const totalCompletedAttempts =
+    (orders.accepted ?? 0) + (orders.cancelled ?? 0);
 
+  const hasAcceptanceData = totalAssignments > 0;
+  const hasCompletionData = totalCompletedAttempts > 0;
+
+  const acceptanceRate = hasAcceptanceData
+    ? Math.min(Math.max(orders.acceptance_rate ?? 0, 0), 100)
+    : 0;
+
+  const completionRate = hasCompletionData
+    ? Math.min(Math.max(orders.completion_rate ?? 0, 0), 100)
+    : 0;
+
+  // ── Color helpers ─────────────────────────────────────────────
   const getRateColor = (
     val: number,
     goodThreshold: number,
     warnThreshold: number,
+    hasData: boolean,
   ) => {
+    if (!hasData) return colors.text.muted;
     if (val >= goodThreshold) return colors.status.success;
     if (val >= warnThreshold) return colors.status.warning;
     return colors.status.error;
   };
 
-  const acceptanceColor = getRateColor(acceptanceRate, 80, 60);
-  const completionColor = getRateColor(completionRate, 90, 70);
+  const acceptanceColor = getRateColor(
+    acceptanceRate,
+    80,
+    60,
+    hasAcceptanceData,
+  );
+  const completionColor = getRateColor(
+    completionRate,
+    90,
+    70,
+    hasCompletionData,
+  );
 
   return (
     <View
@@ -152,7 +172,7 @@ export function OrderStatsCard({ orders }: OrderStatsCardProps) {
               Acceptance
             </Text>
             <Text style={[styles.rateValue, { color: acceptanceColor }]}>
-              {acceptanceRate}%
+              {hasAcceptanceData ? `${acceptanceRate.toFixed(0)}%` : "—"}
             </Text>
           </View>
           <View
@@ -190,7 +210,7 @@ export function OrderStatsCard({ orders }: OrderStatsCardProps) {
               Completion
             </Text>
             <Text style={[styles.rateValue, { color: completionColor }]}>
-              {completionRate}%
+              {hasCompletionData ? `${completionRate.toFixed(0)}%` : "—"}
             </Text>
           </View>
           <View

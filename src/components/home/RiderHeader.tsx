@@ -191,7 +191,7 @@ export function RiderHeader({
           onToggle={handleToggle}
         />
 
-        {/* <View style={styles.actions}>
+        <View style={styles.actions}>
           <TouchableOpacity
             style={[
               styles.helpButton,
@@ -260,7 +260,7 @@ export function RiderHeader({
               />
             )}
           </TouchableOpacity>
-        </View> */}
+        </View>
       </View>
     </View>
   );

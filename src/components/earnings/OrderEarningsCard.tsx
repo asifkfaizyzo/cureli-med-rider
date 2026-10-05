@@ -67,7 +67,7 @@ export default function OrderEarningsCard({
         </View>
         <View style={styles.rightInfo}>
           <Text style={styles.totalEarning}>
-            {formatCurrency(order.earnings.total_earning)}
+            {formatCurrency(order.earnings.total_earning + order.earnings.tip_amount)}
           </Text>
           <Ionicons
             name="chevron-forward"
