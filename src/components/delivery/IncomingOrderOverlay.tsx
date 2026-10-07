@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { dismissAllNotifications } from "../../services/notificationHandler";  
 import { deliveryApi } from "../../features/delivery/api/delivery.api";
 import { useDeliveryStore } from "../../store/deliveryStore";
 import { useAuthStore } from "../../store/authStore";
@@ -96,9 +97,11 @@ export const IncomingOrderOverlay: React.FC = () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {}
 
-    try {
+     try {
       const active = await deliveryApi.acceptDelivery(incomingAlert.delivery_id);
       setActiveDelivery(active);
+
+      dismissAllNotifications();  // ← ADD
     } catch (err: any) {
       const message =
         err?.response?.data?.message ||
@@ -145,10 +148,13 @@ export const IncomingOrderOverlay: React.FC = () => {
         destructive: true,
         icon: "error-outline",
       });
-    } finally {
+        } finally {
       clearAlert();
       setIsDeclining(false);
       slideX.setValue(0);
+
+      // Dismiss the sticky push notification from the tray
+      dismissAllNotifications();  // ← ADD
     }
   };
 
@@ -421,7 +427,7 @@ export const IncomingOrderOverlay: React.FC = () => {
                   styles.slideThumb,
                   {
                     backgroundColor: colors.brand.primary,
-                    borderColor: colors.brand.primaryThumbBorder,
+                    borderColor: colors.brand.primaryThumbBorder || colors.brand.primary,
                     transform: [{ translateX: slideX }],
                   },
                 ]}
@@ -502,14 +508,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   heroContainer: {
-    marginTop: 10,
+    marginTop: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   heroTitle: {
-    fontSize: 38,
+    fontSize: 22,
     fontWeight: "900",
-    letterSpacing: -1,
+    letterSpacing: 1.5,
     textAlign: "center",
   },
   orderNumber: {
@@ -519,28 +525,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // ── NEW: Earning Hero Card Styles ─────────────────────────────────
+  // ── Earning Hero Card Styles ─────────────────────────────────
   earningCard: {
     width: "100%",
     borderRadius: 18,
     borderWidth: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     marginTop: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   earningLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 1.2,
+    letterSpacing: 1.5,
     textTransform: "uppercase",
   },
   earningValue: {
-    fontSize: 32,
+    fontSize: 52,
     fontWeight: "900",
-    letterSpacing: -0.5,
-    marginVertical: 2,
+    letterSpacing: -1.5,
+    marginVertical: 4,
   },
   bonusChipsRow: {
     flexDirection: "row",

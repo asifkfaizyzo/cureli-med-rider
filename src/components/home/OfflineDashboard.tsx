@@ -13,7 +13,6 @@ import { useAuthStore } from "../../store/authStore";
 import { useRiderOperationalStore } from "../../store/riderOperationalStore";
 import { useTheme } from "../../theme/ThemeContext";
 import { FontFamily } from "../../theme/typography";
-import { ActiveIncentiveCard } from "./ActiveIncentiveCard";
 import { IncentiveSection } from "./IncentiveSection";
 import { EarningsBreakdownCard } from "./EarningsBreakdownCard";
 import { EmptyStateCard } from "./EmptyStateCard";

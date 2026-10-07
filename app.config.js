@@ -26,6 +26,7 @@ module.exports = {
       predictiveBackGestureEnabled: false,
       package: "com.cureli.rider",
       versionCode: 1,
+      googleServicesFile: "./google-services.json", 
       permissions: [
         "android.permission.CAMERA",
         "android.permission.POST_NOTIFICATIONS",
@@ -37,6 +38,8 @@ module.exports = {
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.SCHEDULE_EXACT_ALARM",
       ],
       config: {
         googleMaps: {
@@ -76,9 +79,10 @@ module.exports = {
           icon: "./assets/images/android-icon-monochrome.png",
           color: "#090025",
           defaultChannel: "cureli-rider-online-service",
-          sounds: [],
+          sounds: ["./assets/sounds/incoming_order.mp3"], // ← CHANGE from [] to this
         },
       ],
+      "./plugins/withRiderNotificationSound",
       [
         "expo-build-properties",
         {

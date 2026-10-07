@@ -46,36 +46,51 @@ export function IncentiveRow({
 
   if (sorted.length === 0) return null;
 
+  const renderCard = (incentive: ActiveIncentive) => {
+    return periodType === "DAILY" ? (
+      <DailyIncentiveCard
+        incentive={incentive}
+        isPinned={isPinned(incentive.schedule_id)}
+        onTogglePin={() => onTogglePin(incentive.schedule_id)}
+      />
+    ) : (
+      <WeeklyIncentiveCard
+        incentive={incentive}
+        isPinned={isPinned(incentive.schedule_id)}
+        onTogglePin={() => onTogglePin(incentive.schedule_id)}
+      />
+    );
+  };
+
+  const isSingleCard = sorted.length === 1;
+
   return (
     <View style={styles.container}>
       <Text style={[styles.rowTitle, { color: colors.text.primary }]}>
         {rowTitle}
       </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        snapToInterval={CARD_WIDTH + 12}
-        decelerationRate="fast"
-      >
-        {sorted.map((incentive) => (
-          <View key={incentive.schedule_id} style={styles.cardWrapper}>
-            {periodType === "DAILY" ? (
-              <DailyIncentiveCard
-                incentive={incentive}
-                isPinned={isPinned(incentive.schedule_id)}
-                onTogglePin={() => onTogglePin(incentive.schedule_id)}
-              />
-            ) : (
-              <WeeklyIncentiveCard
-                incentive={incentive}
-                isPinned={isPinned(incentive.schedule_id)}
-                onTogglePin={() => onTogglePin(incentive.schedule_id)}
-              />
-            )}
-          </View>
-        ))}
-      </ScrollView>
+
+      {isSingleCard ? (
+        // Single card: Take normal 100% full width without horizontal ScrollView
+        <View style={styles.singleCardWrapper}>
+          {renderCard(sorted[0])}
+        </View>
+      ) : (
+        // Multiple cards: Carousel with 82% width cards and snapping
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          snapToInterval={CARD_WIDTH + 12}
+          decelerationRate="fast"
+        >
+          {sorted.map((incentive) => (
+            <View key={incentive.schedule_id} style={styles.cardWrapper}>
+              {renderCard(incentive)}
+            </View>
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -93,5 +108,9 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     width: CARD_WIDTH,
+  },
+  singleCardWrapper: {
+    width: "100%",
+    paddingHorizontal: 2,
   },
 });

@@ -20,9 +20,13 @@ import {
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { DevLocationOverride } from "../src/components/dev/DevLocationOverride";
 import { DialogProvider } from "../src/components/Dialog/DialogProvider";
 import "../src/services/locationTask";
+import {
+  configureForegroundNotificationHandler,
+  setupBackgroundNotificationListener,
+  setupNotificationResponseListener,
+} from "../src/services/notificationHandler";
 import { useAuthStore } from "../src/store/authStore";
 import { ThemeProvider, useTheme } from "../src/theme/ThemeContext";
 
@@ -93,6 +97,31 @@ export default function RootLayout() {
 
   useEffect(() => {
     initialize();
+  }, []);
+
+  // ── Push Notification Setup ──────────────────────────────────────────────
+  useEffect(() => {
+    // 0. Create Android notification channels (must happen before any push)
+    try {
+      const { setupNotificationChannels } = require("../src/services/notificationChannelSetup");
+      setupNotificationChannels();
+    } catch {
+      // Non-fatal
+    }
+
+    // 1. Configure foreground behavior (suppress when SSE is alive)
+    configureForegroundNotificationHandler();
+
+    // 2. Handle notification taps → deep-link into app
+    const cleanupResponse = setupNotificationResponseListener();
+
+    // 3. Handle background notification events
+    const cleanupBackground = setupBackgroundNotificationListener();
+
+    return () => {
+      cleanupResponse();
+      cleanupBackground();
+    };
   }, []);
 
   if (!fontsLoaded) return null;

@@ -82,6 +82,26 @@ export const authApi = {
     return data.data;
   },
 
+    // ── Push Token Management ──────────────────────────────────────────────
+
+  registerPushToken: async (
+    pushToken: string,
+    pushTokenType: "expo" | "fcm" = "expo",
+  ): Promise<{ success: boolean }> => {
+    const { data } = await api.post("/rider/auth/push-token", {
+      push_token: pushToken,
+      push_token_type: pushTokenType,
+    });
+    return data.data;
+  },
+
+  clearPushToken: async (): Promise<{ success: boolean }> => {
+    const { data } = await api.post("/rider/auth/push-token", {
+      push_token: null,
+    });
+    return data.data;
+  },
+
   logout: async (): Promise<void> => {
     await api.post('/rider/auth/logout');
   },

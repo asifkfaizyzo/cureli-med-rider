@@ -15,6 +15,7 @@ import { useDeliveryStore } from "../../store/deliveryStore";
 import { useTheme } from "../../theme/ThemeContext";
 import type { ActiveDelivery } from "../../types/delivery";
 import { useDialog } from "../Dialog/DialogProvider";
+import { DeliverySuccessModal } from "./DeliverySuccessModal";
 import { GeofencedSlideToConfirm } from "./GeofencedSlideToConfirm";
 import { InlineOtpInput } from "./InlineOtpInput";
 
@@ -24,25 +25,6 @@ interface CustomerLegPanelProps {
   delivery: ActiveDelivery;
 }
 
-/**
- * Real customer-leg flow (Phase 4), mirroring PharmacyLegPanel's shape:
- *
- *  1. PICKED_UP / EN_ROUTE -> GPS-gated "Reached Customer" slider (30m
- *     radius, client-side only per current scope). EN_ROUTE is fired
- *     silently in the background by useAutoEnRoute — this panel treats
- *     both statuses identically, no UI distinction needed.
- *  2. ARRIVED_AT_CUSTOMER  -> inline 4-digit delivery OTP + "Complete
- *     Delivery" slider, gated on OTP being fully entered.
- *
- * On success of step 2, clearActiveDelivery() fires, which flips
- * isDeliveryLocked() to false in app/(app)/_layout.tsx — the rider is
- * returned to the (tabs) navigator automatically.
- *
- * Visually mirrors PharmacyLegPanel: header "card" (icon + title + badge
- * + distance pill + address + quick actions), then a sectioned action
- * area — STEP 1 slider while en route, pickupCard-style OTP entry once
- * arrived.
- */
 export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
   const { colors } = useTheme();
   const setActiveDelivery = useDeliveryStore((s) => s.setActiveDelivery);
@@ -51,22 +33,18 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
 
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState(false);
+  const [completedDeliverySnapshot, setCompletedDeliverySnapshot] =
+    useState<ActiveDelivery | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const customer = delivery.customer;
 
-  // useProximity must be called unconditionally (Rules of Hooks) — safe
-  // even if customer is null, since useProximity accepts null/undefined
-  // coordinates and simply reports isWithinRange: false.
   const { distanceMeters, isWithinRange } = useProximity(
     customer?.latitude,
     customer?.longitude,
     ARRIVAL_RADIUS_METERS,
   );
 
-  // Defensive guard — the backend only populates `customer` once the
-  // delivery is post-pickup, and this panel only ever renders in that
-  // window (see getDeliveryLeg), but we don't want a crash if that
-  // assumption is ever violated by a backend/schema change.
   if (!customer) {
     return (
       <View style={styles.container}>
@@ -82,7 +60,8 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
   const contactPhone = customer.phone;
   const hasTargetCoords = targetLat != null && targetLng != null;
 
-  const isEnRouteLeg = delivery.status === "PICKED_UP" || delivery.status === "EN_ROUTE";
+  const isEnRouteLeg =
+    delivery.status === "PICKED_UP" || delivery.status === "EN_ROUTE";
   const hasArrived = delivery.status === "ARRIVED_AT_CUSTOMER";
 
   const openNavigation = () => {
@@ -105,7 +84,10 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
 
   const handleConfirmArrival = async () => {
     try {
-      const updated = await deliveryApi.updateStatus(delivery.delivery_id, "ARRIVED_AT_CUSTOMER");
+      const updated = await deliveryApi.updateStatus(
+        delivery.delivery_id,
+        "ARRIVED_AT_CUSTOMER",
+      );
       setActiveDelivery(updated);
     } catch (err: any) {
       dialog.alert({
@@ -122,12 +104,10 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
       await deliveryApi.completeDelivery(delivery.delivery_id, otp);
       setOtp("");
       setOtpError(false);
-      clearActiveDelivery();
-      dialog.alert({
-        title: "Order Delivered!",
-        message: "Delivery completed successfully. Great job!",
-        icon: "check-circle-outline",
-      });
+
+      // Snapshot delivery state and open success modal
+      setCompletedDeliverySnapshot(delivery);
+      setShowSuccessModal(true);
     } catch (err: any) {
       setOtpError(true);
       setOtp("");
@@ -140,6 +120,12 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
         destructive: true,
       });
     }
+  };
+
+  const handleModalDone = () => {
+    setShowSuccessModal(false);
+    setCompletedDeliverySnapshot(null);
+    clearActiveDelivery(); // Returns rider back to Home / Tabs
   };
 
   const distanceLabel =
@@ -155,7 +141,12 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
       ? "Waiting for GPS signal..."
       : `Get closer — ${distanceLabel}`;
 
-  const addressLine = [customer.address_line_1, customer.address_line_2, customer.landmark, customer.city]
+  const addressLine = [
+    customer.address_line_1,
+    customer.address_line_2,
+    customer.landmark,
+    customer.city,
+  ]
     .filter(Boolean)
     .join(", ");
 
@@ -194,13 +185,21 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
             <View
               style={[
                 styles.paymentBadge,
-                { backgroundColor: isCod ? colors.status.warningBg : colors.status.successBg },
+                {
+                  backgroundColor: isCod
+                    ? colors.status.warningBg
+                    : colors.status.successBg,
+                },
               ]}
             >
               <Text
                 style={[
                   styles.paymentBadgeText,
-                  { color: isCod ? colors.status.warning : colors.status.success },
+                  {
+                    color: isCod
+                      ? colors.status.warning
+                      : colors.status.success,
+                  },
                 ]}
               >
                 {isCod ? "COLLECT CASH" : delivery.payment_method}
@@ -236,11 +235,17 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
           {addressLine || "Address unavailable"}
         </Text>
 
-        {/* Order summary — item count / amount surfaced alongside the
-            payment badge above since COD requires the rider to actually
-            collect cash on handover. */}
-        <View style={[styles.summaryPill, { backgroundColor: colors.background.tint }]}>
-          <Ionicons name="receipt-outline" size={13} color={colors.text.secondary} />
+        <View
+          style={[
+            styles.summaryPill,
+            { backgroundColor: colors.background.tint },
+          ]}
+        >
+          <Ionicons
+            name="receipt-outline"
+            size={13}
+            color={colors.text.secondary}
+          />
           <Text style={[styles.summaryText, { color: colors.text.secondary }]}>
             {delivery.item_count} item{delivery.item_count === 1 ? "" : "s"} · ₹
             {delivery.total_amount.toFixed(0)}
@@ -374,6 +379,13 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
           </View>
         )}
       </View>
+
+      {/* Delivery Success Modal */}
+      <DeliverySuccessModal
+        visible={showSuccessModal}
+        delivery={completedDeliverySnapshot}
+        onDone={handleModalDone}
+      />
     </View>
   );
 }

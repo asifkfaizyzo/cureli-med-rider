@@ -1,6 +1,10 @@
 // src/services/soundService.ts (do not remove this comment)
 
-import { Audio } from "expo-av";
+import {
+  Audio,
+  InterruptionModeAndroid,
+  InterruptionModeIOS,
+} from "expo-av";
 import * as Haptics from "expo-haptics";
 
 class SoundService {
@@ -13,10 +17,15 @@ class SoundService {
     this.isPlaying = true;
 
     try {
+      // ── Android: Request alarm-level audio focus ──────────────────────
+      // Takes full audio focus (DoNotMix) so the incoming alert sound is
+      // heard at maximum volume even if media volume is set low.
       await Audio.setAudioModeAsync({
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
-        shouldDuckAndroid: true,
+        shouldDuckAndroid: false,
+        interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
       });
 
       const { sound } = await Audio.Sound.createAsync(
@@ -30,7 +39,10 @@ class SoundService {
       this.soundObject = sound;
       await this.soundObject.playAsync();
     } catch (err: any) {
-      console.warn("[SoundService] Sound play failed (continuing with visual alert):", err?.message);
+      console.warn(
+        "[SoundService] Sound play failed (continuing with visual alert):",
+        err?.message,
+      );
     }
 
     // Trigger looping haptics
@@ -64,6 +76,17 @@ class SoundService {
         // Sound already unloaded
       }
       this.soundObject = null;
+    }
+
+    // ── Release audio focus so other apps can resume audio ────────────
+    try {
+      await Audio.setAudioModeAsync({
+        shouldDuckAndroid: true,
+        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+        interruptionModeIOS: InterruptionModeIOS.DuckOthers,
+      });
+    } catch {
+      // Non-fatal
     }
   }
 }
