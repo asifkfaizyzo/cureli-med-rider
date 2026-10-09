@@ -2,7 +2,10 @@
 
 import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
+import { Linking, NativeModules, Platform } from "react-native";
 import { useDeliveryStore } from "../store/deliveryStore";
+
+const { FullScreenDeliveryModule } = NativeModules;
 
 // ── Foreground Handler ────────────────────────────────────────────────────────
 export function configureForegroundNotificationHandler(): void {
@@ -48,10 +51,7 @@ export function setupNotificationResponseListener(): () => void {
 
     if (data.screen === "incoming_delivery" || data.delivery_id) {
       try {
-        // 1. Force instant delivery state resync
         useDeliveryStore.getState().requestResync();
-
-        // 2. Navigate to root/home
         router.navigate("/(app)/(tabs)/home");
       } catch (err) {
         console.warn("[NotificationHandler] Navigation failed:", err);
@@ -67,10 +67,8 @@ export function setupNotificationResponseListener(): () => void {
     }
   };
 
-  // 1. Listen for taps while app is running in background
   const subscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
 
-  // 2. Check if the app was cold-started by tapping a notification when completely killed
   Notifications.getLastNotificationResponseAsync().then((response) => {
     if (response) {
       handleResponse(response);
@@ -87,6 +85,14 @@ export function setupBackgroundNotificationListener(): () => void {
       const data = notification.request.content.data as Record<string, any>;
       if (!data) return;
 
+      if (data.screen === "incoming_delivery" || data.delivery_id || data.action === "dismiss") {
+        try {
+          useDeliveryStore.getState().requestResync();
+        } catch (err) {
+          console.warn("[NotificationHandler] Failed to trigger background resync:", err);
+        }
+      }
+
       if (data.action === "dismiss") {
         Notifications.dismissAllNotificationsAsync().catch(() => {});
       }
@@ -101,4 +107,45 @@ export async function dismissAllNotifications(): Promise<void> {
   try {
     await Notifications.dismissAllNotificationsAsync();
   } catch {}
+}
+
+// ── Overlay / "Draw Over Other Apps" Permissions (Android Only) ───────────────
+
+/**
+ * Checks if "Draw Over Other Apps" (SYSTEM_ALERT_WINDOW) permission is granted.
+ */
+export async function checkDrawOverPermission(): Promise<boolean> {
+  if (Platform.OS !== "android") return true;
+  if (!FullScreenDeliveryModule?.checkOverlayPermission) {
+    return true; // Don't block dev if native module isn't mounted yet
+  }
+  try {
+    return await FullScreenDeliveryModule.checkOverlayPermission();
+  } catch (err) {
+    console.error("[NotificationHandler] Failed to check overlay permission:", err);
+    return true;
+  }
+}
+
+/**
+ * Direct navigation to Settings → Display over other apps → Cureli Rider.
+ */
+export async function requestDrawOverPermission(): Promise<void> {
+  if (Platform.OS !== "android") return;
+  
+  if (FullScreenDeliveryModule?.requestOverlayPermission) {
+    try {
+      await FullScreenDeliveryModule.requestOverlayPermission();
+      return;
+    } catch (err) {
+      console.warn("[NotificationHandler] Native requestOverlayPermission failed, using fallback:", err);
+    }
+  }
+
+  // Fallback: Open application details settings
+  try {
+    await Linking.openSettings();
+  } catch (err) {
+    console.error("[NotificationHandler] Failed to open settings:", err);
+  }
 }

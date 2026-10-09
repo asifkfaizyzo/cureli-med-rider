@@ -1,10 +1,11 @@
 // src/hooks/useSSEConnection.ts (do not remove this comment)
 import { useEffect } from "react";
-import { AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus, Platform } from "react-native";
 import { useDialog } from "../components/Dialog/DialogProvider";
 import { connectSSE, disconnectSSE, onSSEEvent } from "../services/sseManager";
 import { useAuthStore } from "../store/authStore";
-import { useDeliveryStore } from "../store/deliveryStore"; // ── ADD THIS IMPORT
+import { useDeliveryStore } from "../store/deliveryStore";
+import { checkDrawOverPermission, requestDrawOverPermission } from "../services/notificationHandler";
 
 export function useSSEConnection() {
   const status = useAuthStore((state) => state.status);
@@ -28,15 +29,19 @@ export function useSSEConnection() {
             } catch {}
 
             // 3. ── ★ CRITICAL: Always resync active delivery on app foreground ★ ──
-            // This guarantees the incoming order overlay pops up immediately
-            // when returning from background or locked screen!
             try {
               useDeliveryStore.getState().requestResync();
             } catch (err) {
               console.warn("[SSE] Failed to request delivery resync on foreground:", err);
             }
 
-            // 4. Re-sync online status from server
+            // 4. ── ★ SAFETY GATE: Check draw-over permission on foreground ★ ──
+            let hasOverlayPermission = true;
+            if (Platform.OS === "android") {
+              hasOverlayPermission = await checkDrawOverPermission();
+            }
+
+            // 5. Re-sync online status from server
             try {
               const { api } = await import("../services/api");
               const res = await api.get<{
@@ -45,27 +50,38 @@ export function useSSEConnection() {
               }>("/rider/status");
 
               const serverOnline = res.data?.data?.is_online ?? false;
-
-              const { useRiderOperationalStore } =
-                await import("../store/riderOperationalStore");
+              const { useRiderOperationalStore } = await import("../store/riderOperationalStore");
               const localOnline = useRiderOperationalStore.getState().isOnline;
 
-              if (localOnline !== serverOnline) {
-                useRiderOperationalStore
-                  .getState()
-                  .syncFromProfile(serverOnline);
+              // If online but missing critical overlay permission -> FORCE OFFLINE
+              if (!hasOverlayPermission && (serverOnline || localOnline)) {
+                console.warn("[SSE] Enforcing overlay permission offline gate");
+                
+                // Call API to switch offline
+                await api.post("/rider/status", { is_online: false }).catch(() => {});
+                
+                useRiderOperationalStore.getState().syncFromProfile(false);
+                useAuthStore.getState().updateRider({ is_online: false });
 
-                const { useAuthStore: authStoreInstance } =
-                  await import("../store/authStore");
-                authStoreInstance
-                  .getState()
-                  .updateRider({ is_online: serverOnline });
+                await dialog.alert({
+                  title: "Action Required",
+                  message: "Cureli Rider requires the 'Display over other apps' permission to alert you of new incoming delivery requests. Please grant this permission to go online.",
+                  icon: "warning",
+                });
+                
+                // Prompt setting selection immediately
+                await requestDrawOverPermission();
+                return;
+              }
+
+              if (localOnline !== serverOnline) {
+                useRiderOperationalStore.getState().syncFromProfile(serverOnline);
+                useAuthStore.getState().updateRider({ is_online: serverOnline });
 
                 if (localOnline && !serverOnline) {
                   dialog.alert({
                     title: "Status Updated",
-                    message:
-                      "You were marked offline due to inactivity or lack of GPS signal.",
+                    message: "You were marked offline due to inactivity or lack of GPS signal.",
                     icon: "cloud-off",
                   });
                 }

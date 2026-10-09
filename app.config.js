@@ -83,6 +83,7 @@ module.exports = {
         },
       ],
       "./plugins/withRiderNotificationSound",
+      "./plugins/withFullScreenDelivery",
       [
         "expo-build-properties",
         {

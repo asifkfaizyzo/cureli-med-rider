@@ -1,14 +1,16 @@
 // src/hooks/useAvailabilityToggle.ts (do not remove this comment)
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Platform } from "react-native";
 import { homeApi } from "../features/home/api/home.api";
 import { useRiderOperationalStore } from "../store/riderOperationalStore";
 import { useAuthStore } from "../store/authStore";
 import { getCurrentLocation } from "../services/locationService";
 import { useDialog } from "../components/Dialog/DialogProvider";
+import { checkDrawOverPermission, requestDrawOverPermission } from "../services/notificationHandler";
 
 /**
  * React Query mutation hook for toggling availability.
- * Handles online/offline transitions with proper location data.
+ * Handles online/offline transitions with direct settings navigation.
  */
 export function useAvailabilityToggle() {
   const queryClient = useQueryClient();
@@ -22,6 +24,27 @@ export function useAvailabilityToggle() {
       setToggling(true);
 
       if (targetOnline) {
+        // ── Draw Over Apps Safety Gate ───────────────────────────────────────
+        if (Platform.OS === "android") {
+          const hasOverlayPermission = await checkDrawOverPermission();
+          if (!hasOverlayPermission) {
+            const confirmed = await dialog.confirm({
+              title: "Permission Required",
+              message:
+                "To receive incoming order alerts while using Google Maps or when your phone is locked, please allow Cureli to 'Display over other apps'.",
+              confirmLabel: "Open Settings",
+              cancelLabel: "Not Now",
+              icon: "warning",
+            });
+
+            if (confirmed) {
+              await requestDrawOverPermission();
+            }
+
+            throw new Error("Permission system_alert_window missing");
+          }
+        }
+
         // Going online — get current location first
         const location = await getCurrentLocation();
         if (!location) {
@@ -46,13 +69,17 @@ export function useAvailabilityToggle() {
     },
 
     onError: (error: any) => {
+      if (error?.message === "Permission system_alert_window missing") {
+        setToggling(false);
+        return;
+      }
+
       console.error("[AvailabilityToggle] Error:", error?.response?.data || error?.message);
 
       const code = error?.response?.data?.code || error?.code;
       const message = error?.response?.data?.message || error?.message;
 
       if (code === "ACTIVE_DELIVERY") {
-        // ── Surface descriptive error explaining the active state lock ───────
         dialog.alert({
           title: "Status Locked",
           message: message || "You cannot go offline while you have an active delivery.",
