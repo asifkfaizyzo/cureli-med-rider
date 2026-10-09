@@ -26,7 +26,7 @@ module.exports = {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.cureli.rider",
-      versionCode: 2, // ← BUMP this integer (e.g. 2, 3, 4) for every future build you submit
+      versionCode: 8, // ← BUMP this integer (e.g. 2, 3, 4) for every future build you submit
       googleServicesFile: "./google-services.json",
       permissions: [
         "android.permission.CAMERA",
