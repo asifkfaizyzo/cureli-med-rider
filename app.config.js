@@ -1,8 +1,9 @@
 require("dotenv").config();
 
+// Ensure there is always a valid key string fallback during cloud builds
 const GOOGLE_MAPS_KEY =
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ||
   process.env.GOOGLE_MAPS_API_KEY ||
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ||
   "";
 
 module.exports = {
@@ -25,8 +26,8 @@ module.exports = {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.cureli.rider",
-      versionCode: 1,
-      googleServicesFile: "./google-services.json", 
+      versionCode: 1, // ← BUMP this integer (e.g. 2, 3, 4) for every future build you submit
+      googleServicesFile: "./google-services.json",
       permissions: [
         "android.permission.CAMERA",
         "android.permission.POST_NOTIFICATIONS",
@@ -79,7 +80,7 @@ module.exports = {
           icon: "./assets/images/android-icon-monochrome.png",
           color: "#090025",
           defaultChannel: "cureli-rider-online-service",
-          sounds: ["./assets/sounds/incoming_order.mp3"], // ← CHANGE from [] to this
+          sounds: ["./assets/sounds/incoming_order.mp3"],
         },
       ],
       "./plugins/withRiderNotificationSound",
