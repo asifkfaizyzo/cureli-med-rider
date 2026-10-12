@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "345562345364",
+    "project_id": "cureli-mobile-da740",
+    "storage_bucket": "cureli-mobile-da740.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:345562345364:android:d9f21c6ca81eb572602981",
+        "android_client_info": {
+          "package_name": "com.cureli.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAC-mL8nSyV7j4iToEZVtjJWqxYPuH9xpk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:345562345364:android:2e6f333df20cccef602981",
+        "android_client_info": {
+          "package_name": "com.cureli.rider"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAC-mL8nSyV7j4iToEZVtjJWqxYPuH9xpk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
