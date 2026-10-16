@@ -10,21 +10,29 @@ const { FullScreenDeliveryModule } = NativeModules;
 // ── Foreground Handler ────────────────────────────────────────────────────────
 export function configureForegroundNotificationHandler(): void {
   Notifications.setNotificationHandler({
-    handleNotification: async () => {
-      let sseConnected = false;
-      try {
-        const { isSSEConnected } = await import("./sseManager");
-        sseConnected = isSSEConnected();
-      } catch {}
+    handleNotification: async (notification) => {
+      const data = notification.request.content.data as Record<string, any>;
+      const category = data?.category;
 
-      if (sseConnected) {
-        return {
-          shouldShowAlert: false,
-          shouldPlaySound: false,
-          shouldSetBadge: false,
-          shouldShowBanner: false,
-          shouldShowList: false,
-        };
+      // Only suppress incoming_delivery when SSE is alive —
+      // the in-app overlay handles those. Everything else
+      // (delivery_updates, system_messages) shows as OS banner.
+      if (category === "incoming_delivery") {
+        let sseConnected = false;
+        try {
+          const { isSSEConnected } = await import("./sseManager");
+          sseConnected = isSSEConnected();
+        } catch {}
+
+        if (sseConnected) {
+          return {
+            shouldShowAlert: false,
+            shouldPlaySound: false,
+            shouldSetBadge: false,
+            shouldShowBanner: false,
+            shouldShowList: false,
+          };
+        }
       }
 
       return {
@@ -41,7 +49,10 @@ export function configureForegroundNotificationHandler(): void {
 // ── Notification Response Listener (Tap Handling) ─────────────────────────────
 export function setupNotificationResponseListener(): () => void {
   const handleResponse = (response: Notifications.NotificationResponse) => {
-    const data = response.notification.request.content.data as Record<string, any>;
+    const data = response.notification.request.content.data as Record<
+      string,
+      any
+    >;
     if (!data) return;
 
     if (data.action === "dismiss") {
@@ -67,7 +78,8 @@ export function setupNotificationResponseListener(): () => void {
     }
   };
 
-  const subscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+  const subscription =
+    Notifications.addNotificationResponseReceivedListener(handleResponse);
 
   Notifications.getLastNotificationResponseAsync().then((response) => {
     if (response) {
@@ -85,11 +97,18 @@ export function setupBackgroundNotificationListener(): () => void {
       const data = notification.request.content.data as Record<string, any>;
       if (!data) return;
 
-      if (data.screen === "incoming_delivery" || data.delivery_id || data.action === "dismiss") {
+      if (
+        data.screen === "incoming_delivery" ||
+        data.delivery_id ||
+        data.action === "dismiss"
+      ) {
         try {
           useDeliveryStore.getState().requestResync();
         } catch (err) {
-          console.warn("[NotificationHandler] Failed to trigger background resync:", err);
+          console.warn(
+            "[NotificationHandler] Failed to trigger background resync:",
+            err,
+          );
         }
       }
 
@@ -122,7 +141,10 @@ export async function checkDrawOverPermission(): Promise<boolean> {
   try {
     return await FullScreenDeliveryModule.checkOverlayPermission();
   } catch (err) {
-    console.error("[NotificationHandler] Failed to check overlay permission:", err);
+    console.error(
+      "[NotificationHandler] Failed to check overlay permission:",
+      err,
+    );
     return true;
   }
 }
@@ -132,13 +154,16 @@ export async function checkDrawOverPermission(): Promise<boolean> {
  */
 export async function requestDrawOverPermission(): Promise<void> {
   if (Platform.OS !== "android") return;
-  
+
   if (FullScreenDeliveryModule?.requestOverlayPermission) {
     try {
       await FullScreenDeliveryModule.requestOverlayPermission();
       return;
     } catch (err) {
-      console.warn("[NotificationHandler] Native requestOverlayPermission failed, using fallback:", err);
+      console.warn(
+        "[NotificationHandler] Native requestOverlayPermission failed, using fallback:",
+        err,
+      );
     }
   }
 

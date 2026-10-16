@@ -11,15 +11,12 @@ import { useDialog } from "../Dialog/DialogProvider";
 interface TopStatusBarProps {
   orderNumber: string;
   leg: DeliveryLeg;
+  onBack?: () => void;
 }
 
-// SOS/Help are STUBS ONLY — confirmed in-scope for now. No rider incident/
-// support module exists in the backend yet (only auth/dashboard/delivery/
-// onboarding/presence/shops/sse under modules/rider/*). Real backend-wired
-// SOS is an explicitly separate future project.
 const SUPPORT_PHONE = "+91 98959 42201";
 
-export function TopStatusBar({ orderNumber, leg }: TopStatusBarProps) {
+export function TopStatusBar({ orderNumber, leg, onBack }: TopStatusBarProps) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const dialog = useDialog();
@@ -65,6 +62,15 @@ export function TopStatusBar({ orderNumber, leg }: TopStatusBarProps) {
       ]}
     >
       <View style={styles.left}>
+        {onBack && (
+          <TouchableOpacity
+            onPress={onBack}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 4 }}
+            style={styles.backBtn}
+          >
+            <Ionicons name="chevron-back" size={22} color={colors.text.primary} />
+          </TouchableOpacity>
+        )}
         <View style={[styles.legBadge, { backgroundColor: colors.brand.light }]}>
           <Ionicons
             name={leg === "PHARMACY" ? "medkit" : "home"}
@@ -120,6 +126,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   left: { flexDirection: "row", alignItems: "center", gap: 10 },
+  backBtn: { paddingRight: 2 },
   legBadge: {
     flexDirection: "row",
     alignItems: "center",

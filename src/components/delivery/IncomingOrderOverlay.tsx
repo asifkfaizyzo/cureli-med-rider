@@ -20,6 +20,7 @@ import { useDeliveryStore } from "../../store/deliveryStore";
 import { useAuthStore } from "../../store/authStore";
 import { useTheme } from "../../theme/ThemeContext";
 import { useDialog } from "../Dialog/DialogProvider";
+import type { IncomingBatchAlert } from "../../types/delivery";
 
 const THUMB_SIZE = 54;
 
@@ -39,6 +40,9 @@ export const IncomingOrderOverlay: React.FC = () => {
   const incomingAlert = useDeliveryStore((s) => s.incomingAlert);
   const clearAlert = useDeliveryStore((s) => s.clearAlert);
   const setActiveDelivery = useDeliveryStore((s) => s.setActiveDelivery);
+  const incomingBatch = useDeliveryStore((s) => s.incomingBatch);
+  const clearIncomingBatch = useDeliveryStore((s) => s.clearIncomingBatch);
+  const setActiveBatches = useDeliveryStore((s) => s.setActiveBatches);
   const loggedInRider = useAuthStore((s) => s.rider);
 
   // ── Elapsed timer (informational only — no auto-action) ──────────────
@@ -51,9 +55,13 @@ export const IncomingOrderOverlay: React.FC = () => {
   const slideX = useRef(new Animated.Value(0)).current;
   const maxSlideRef = useRef(0);
 
+  // Determine which mode we're in (must be before useEffects that reference it)
+  const isBatchMode = !incomingAlert && !!incomingBatch;
+  const activeAlert = incomingAlert || incomingBatch;
+
   // ── Energetic breathing pulse animation for the "NEW ORDER" banner ──
   useEffect(() => {
-    if (!incomingAlert) return;
+    if (!activeAlert) return;
 
     const pulse = Animated.loop(
       Animated.sequence([
@@ -72,11 +80,11 @@ export const IncomingOrderOverlay: React.FC = () => {
     pulse.start();
 
     return () => pulse.stop();
-  }, [incomingAlert, pulseAnim]);
+  }, [activeAlert, pulseAnim]);
 
   // ── Elapsed timer: counts UP from 0 (no auto-decline) ────────────────
   useEffect(() => {
-    if (!incomingAlert) return;
+    if (!activeAlert) return;
 
     setElapsedSeconds(0);
     slideX.setValue(0);
@@ -86,7 +94,7 @@ export const IncomingOrderOverlay: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [incomingAlert]);
+  }, [activeAlert]);
 
   // ── Accept handler ────────────────────────────────────────────────────
   const handleAccept = async () => {
@@ -116,6 +124,80 @@ export const IncomingOrderOverlay: React.FC = () => {
     } finally {
       setIsAccepting(false);
       slideX.setValue(0);
+    }
+  };
+
+  // ── Batch Accept handler ──────────────────────────────────────────────
+  const handleAcceptBatch = async () => {
+    if (!incomingBatch || isAccepting) return;
+    setIsAccepting(true);
+
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+
+    try {
+      await deliveryApi.acceptBatch(incomingBatch.batch_group_id);
+
+      // After accepting, resync to get the full batch data
+      const allDeliveries = await deliveryApi.getActiveDeliveries();
+      if (allDeliveries.batches.length > 0) {
+        setActiveBatches(allDeliveries.batches);
+      }
+
+      clearIncomingBatch();
+      dismissAllNotifications();
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Could not accept this batch. Please try again.";
+      await dialog.alert({
+        title: "Accept Failed",
+        message,
+        destructive: true,
+        icon: "error-outline",
+      });
+    } finally {
+      setIsAccepting(false);
+      slideX.setValue(0);
+    }
+  };
+
+  // ── Batch Decline handler ─────────────────────────────────────────────
+  const handleDeclineBatch = async (reason = "Rider declined") => {
+    if (!incomingBatch || isDeclining) return;
+
+    const confirmed = await dialog.confirm({
+      title: "Decline Batch?",
+      message: `Are you sure you want to decline this batch of ${incomingBatch.order_count} orders?`,
+      confirmLabel: "Decline",
+      cancelLabel: "Cancel",
+      destructive: true,
+      icon: "warning",
+    });
+
+    if (!confirmed) return;
+
+    setIsDeclining(true);
+    try {
+      await deliveryApi.declineBatch(incomingBatch.batch_group_id, reason);
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to decline. Please try again.";
+      await dialog.alert({
+        title: "Decline Failed",
+        message,
+        destructive: true,
+        icon: "error-outline",
+      });
+    } finally {
+      clearIncomingBatch();
+      setIsDeclining(false);
+      slideX.setValue(0);
+      dismissAllNotifications();
     }
   };
 
@@ -164,8 +246,8 @@ export const IncomingOrderOverlay: React.FC = () => {
   const isBusyRef = useRef(false);
 
   useEffect(() => {
-    handleAcceptRef.current = handleAccept;
-    handleDeclineRef.current = handleDecline;
+    handleAcceptRef.current = isBatchMode ? handleAcceptBatch : handleAccept;
+    handleDeclineRef.current = isBatchMode ? handleDeclineBatch : handleDecline;
     isBusyRef.current = isAccepting || isDeclining;
   });
 
@@ -208,6 +290,123 @@ export const IncomingOrderOverlay: React.FC = () => {
     maxSlideRef.current = Math.max(0, width - THUMB_SIZE - 8);
   };
 
+  if (!incomingAlert && !incomingBatch) return null;
+
+  // ── Batch mode content ────────────────────────────────────────────────
+  if (isBatchMode && incomingBatch) {
+    return (
+      <Modal visible={true} transparent={true} animationType="slide">
+        <View style={[styles.backdrop, { backgroundColor: colors.overlay.dark }]}>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: colors.background.card,
+                borderColor: colors.border.subtle,
+              },
+            ]}
+          >
+            {/* Top Bar */}
+            <View style={styles.topRow}>
+              <View
+                style={[
+                  styles.timerBadge,
+                  { backgroundColor: colors.background.tint },
+                ]}
+              >
+                <Ionicons name="time-outline" size={13} color={colors.text.secondary} />
+                <Text style={[styles.timerText, { color: colors.text.secondary }]}>
+                  {formatElapsed(elapsedSeconds)}
+                </Text>
+              </View>
+              <View style={{ width: 60 }} />
+            </View>
+
+            {/* Hero */}
+            <Animated.View style={[styles.heroContainer, { transform: [{ scale: pulseAnim }] }]}>
+              <Text style={[styles.heroTitle, { color: "#0891b2" }]}>
+                NEW BATCH
+              </Text>
+            </Animated.View>
+
+            {/* Order count */}
+            <Text style={[styles.orderNumber, { color: colors.text.muted }]}>
+              {incomingBatch.order_count} orders · Same Day
+            </Text>
+
+            {/* Batch info card */}
+            <View
+              style={[
+                styles.earningCard,
+                {
+                  backgroundColor: "#0891b210",
+                  borderColor: "#0891b230",
+                },
+              ]}
+            >
+              <Ionicons name="cube-outline" size={28} color="#0891b2" />
+              <Text style={[styles.earningValue, { color: "#0891b2", fontSize: 36 }]}>
+                {incomingBatch.order_count}
+              </Text>
+              <Text style={[styles.earningLabel, { color: "#0891b2" }]}>
+                ORDERS IN BATCH
+              </Text>
+            </View>
+
+            {/* Slide to Accept */}
+            <View style={styles.actionContainer}>
+              <View
+                onLayout={onTrackLayout}
+                style={[
+                  styles.slideTrack,
+                  {
+                    backgroundColor: colors.background.tint,
+                    borderColor: colors.border.subtle,
+                  },
+                ]}
+              >
+                <Animated.Text
+                  style={[
+                    styles.slideTrackText,
+                    {
+                      color: "#0891b2",
+                      opacity: slideX.interpolate({
+                        inputRange: [0, Math.max(1, maxSlideRef.current * 0.6)],
+                        outputRange: [1, 0],
+                        extrapolate: "clamp",
+                      }),
+                    },
+                  ]}
+                >
+                  {isAccepting ? "Accepting..." : "Slide to Accept Batch »»»"}
+                </Animated.Text>
+
+                <Animated.View
+                  {...panResponder.panHandlers}
+                  style={[
+                    styles.slideThumb,
+                    {
+                      backgroundColor: "#0891b2",
+                      borderColor: "#0891b2",
+                      transform: [{ translateX: slideX }],
+                    },
+                  ]}
+                >
+                  {isAccepting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Ionicons name="arrow-forward" size={22} color="#fff" />
+                  )}
+                </Animated.View>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
+  // ── Single order mode (existing) ──────────────────────────────────────
   if (!incomingAlert) return null;
 
   const shopDisplayName =
@@ -533,6 +732,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginTop: 12,
+    marginBottom: 12,
     alignItems: "center",
     justifyContent: "center",
   },

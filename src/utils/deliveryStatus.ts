@@ -1,6 +1,6 @@
 // src/utils/deliveryStatus.ts (do not remove this comment)
 
-import type { ActiveDelivery, DeliveryStatus } from "../types/delivery";
+import type { ActiveDelivery, DeliveryStatus, SameDayBatch } from "../types/delivery";
 
 // Statuses where the rider has been assigned but not yet accepted —
 // IncomingOrderOverlay owns this state, NOT the navigation lock.
@@ -34,4 +34,26 @@ export function getDeliveryLeg(delivery: ActiveDelivery): DeliveryLeg {
     return "PHARMACY";
   }
   return "CUSTOMER";
+}
+
+/**
+ * Whether the rider should be locked into the BatchDeliveryScreen.
+ * True when there is at least one active batch with undelivered orders.
+ */
+export function isBatchLocked(batches: SameDayBatch[]): boolean {
+  if (batches.length === 0) return false;
+  return batches.some((b) =>
+    b.orders.some((o) => !TERMINAL_STATUSES.includes(o.status)),
+  );
+}
+
+/**
+ * Combined lock check — instant delivery OR batch.
+ * Used by the navigation gate to decide whether to block tabs.
+ */
+export function isRiderLocked(
+  delivery: ActiveDelivery | null,
+  batches: SameDayBatch[],
+): boolean {
+  return isDeliveryLocked(delivery) || isBatchLocked(batches);
 }

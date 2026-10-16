@@ -129,6 +129,52 @@ export async function connectSSE(): Promise<void> {
       }
     });
 
+    // ── Same Day Batch Events ──────────────────────────────
+    es.addEventListener("batch_assigned", (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+        emitEvent("batch_assigned", data);
+      } catch (error) {
+        console.error("[SSE] Failed to parse batch_assigned:", error);
+      }
+    });
+
+    es.addEventListener("order_added_to_batch", (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+        emitEvent("order_added_to_batch", data);
+      } catch (error) {
+        console.error("[SSE] Failed to parse order_added_to_batch:", error);
+      }
+    });
+
+    es.addEventListener("order_removed_from_batch", (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+        emitEvent("order_removed_from_batch", data);
+      } catch (error) {
+        console.error("[SSE] Failed to parse order_removed_from_batch:", error);
+      }
+    });
+
+    es.addEventListener("delivery_update", (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+        emitEvent("delivery_update", data);
+      } catch (error) {
+        console.error("[SSE] Failed to parse delivery_update:", error);
+      }
+    });
+
+    es.addEventListener("order_status_changed", (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+        emitEvent("order_status_changed", data);
+      } catch (error) {
+        console.error("[SSE] Failed to parse order_status_changed:", error);
+      }
+    });
+
     eventSource.addEventListener("error", (error) => {
       console.error("[SSE] Error event:", error);
       isConnecting = false;

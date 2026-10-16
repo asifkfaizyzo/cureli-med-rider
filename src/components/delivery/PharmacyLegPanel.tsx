@@ -22,13 +22,13 @@ const ARRIVAL_RADIUS_METERS = 30;
 
 interface PharmacyLegPanelProps {
   delivery: ActiveDelivery;
+  onStatusUpdated?: (updated: ActiveDelivery) => void;
 }
 
-/**
- * Real pharmacy-leg flow (Phase 3), replacing the placeholder for the
- * ACCEPTED / ARRIVED_AT_PHARMACY portion of ActiveDeliveryView.
- */
-export function PharmacyLegPanel({ delivery }: PharmacyLegPanelProps) {
+export function PharmacyLegPanel({
+  delivery,
+  onStatusUpdated,
+}: PharmacyLegPanelProps) {
   const { colors } = useTheme();
   const setActiveDelivery = useDeliveryStore((s) => s.setActiveDelivery);
   const dialog = useDialog();
@@ -75,7 +75,11 @@ export function PharmacyLegPanel({ delivery }: PharmacyLegPanelProps) {
         delivery.delivery_id,
         "ARRIVED_AT_PHARMACY",
       );
-      setActiveDelivery(updated);
+      if (onStatusUpdated) {
+        onStatusUpdated(updated);
+      } else {
+        setActiveDelivery(updated);
+      }
     } catch (err: any) {
       dialog.alert({
         title: "Error",
@@ -93,7 +97,11 @@ export function PharmacyLegPanel({ delivery }: PharmacyLegPanelProps) {
         "PICKED_UP",
         otp,
       );
-      setActiveDelivery(updated);
+      if (onStatusUpdated) {
+        onStatusUpdated(updated);
+      } else {
+        setActiveDelivery(updated);
+      }
       setOtp("");
       setOtpError(false);
     } catch (err: any) {

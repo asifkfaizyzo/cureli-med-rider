@@ -1,7 +1,7 @@
 // src/components/delivery/DeliveryMapView.tsx (do not remove this comment)
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import MapView, { PROVIDER_GOOGLE, Polyline } from "react-native-maps";
 import * as PolylineDecoder from "@mapbox/polyline";
 import { api } from "../../services/api";
@@ -46,12 +46,19 @@ export function DeliveryMapView({ leg, targetLat, targetLng }: DeliveryMapViewPr
 
   const { viewRef: riderIconRef, uri: riderIconUri } = useMarkerBitmap([isDark]);
 
-  const hasAutoFittedForLegRef = useRef<DeliveryLeg | null>(null);
+  // Track native map readiness — fitToCoordinates silently fails
+  // if called before the native view is initialized.
+  const [mapReady, setMapReady] = useState(false);
+
+  // Composite key (leg + coords) so auto-fit fires for each unique
+  // destination, not just once per leg. Fixes batch mode where
+  // multiple orders share the same leg but have different coordinates.
+  const lastAutoFitKeyRef = useRef<string | null>(null);
   const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[] | null>(null);
   const lastRouteKeyRef = useRef<string | null>(null);
 
   const fitToBoth = useCallback(() => {
-    if (!mapRef.current || !currentLocation || targetLat == null || targetLng == null) {
+    if (!mapRef.current || !mapReady || !currentLocation || targetLat == null || targetLng == null) {
       return;
     }
     mapRef.current.fitToCoordinates(
@@ -61,21 +68,25 @@ export function DeliveryMapView({ leg, targetLat, targetLng }: DeliveryMapViewPr
       ],
       { edgePadding: FIT_EDGE_PADDING, animated: true },
     );
-  }, [currentLocation, targetLat, targetLng]);
+  }, [currentLocation, targetLat, targetLng, mapReady]);
 
-  // Auto-fit once per leg, the moment both points become available.
-  // Fires again automatically when `leg` flips PHARMACY -> CUSTOMER.
+  // Auto-fit once per unique destination (leg + coordinates), the moment
+  // both points AND the native map are available. Using a composite key
+  // instead of just `leg` ensures re-fit when switching between orders
+  // in batch mode that share the same leg but have different coordinates.
   useEffect(() => {
-    if (hasAutoFittedForLegRef.current === leg) return;
-    if (!currentLocation || targetLat == null || targetLng == null) return;
+    if (!mapReady || !currentLocation || targetLat == null || targetLng == null) return;
+
+    const fitKey = `${leg}:${targetLat.toFixed(4)},${targetLng.toFixed(4)}`;
+    if (lastAutoFitKeyRef.current === fitKey) return;
 
     const timer = setTimeout(() => {
       fitToBoth();
-      hasAutoFittedForLegRef.current = leg;
-    }, 300);
+      lastAutoFitKeyRef.current = fitKey;
+    }, 400);
 
     return () => clearTimeout(timer);
-  }, [leg, currentLocation, targetLat, targetLng, fitToBoth]);
+  }, [leg, currentLocation, targetLat, targetLng, fitToBoth, mapReady]);
 
   // Fetch real driving route polyline when leg or destination changes
   useEffect(() => {
@@ -134,6 +145,7 @@ export function DeliveryMapView({ leg, targetLat, targetLng }: DeliveryMapViewPr
         provider={PROVIDER_GOOGLE}
         customMapStyle={isDark ? darkMapStyle : lightMapStyle}
         initialRegion={initialRegion}
+        onMapReady={() => setMapReady(true)}
         showsUserLocation={false}
         showsMyLocationButton={false}
         showsCompass={false}
@@ -168,6 +180,13 @@ export function DeliveryMapView({ leg, targetLat, targetLng }: DeliveryMapViewPr
       </MapView>
 
       <RecenterButton onPress={fitToBoth} />
+
+      {/* Loading overlay while map initializes or destination is unknown */}
+      {(!mapReady || targetLat == null || targetLng == null) && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="small" color={isDark ? "#B084EB" : "#6A20CD"} />
+        </View>
+      )}
     </View>
   );
 }
@@ -175,4 +194,16 @@ export function DeliveryMapView({ leg, targetLat, targetLng }: DeliveryMapViewPr
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+  loadingOverlay: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    backgroundColor: "rgba(255,255,255,0.85)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
 });

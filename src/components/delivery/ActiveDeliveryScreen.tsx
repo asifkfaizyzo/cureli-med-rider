@@ -4,7 +4,8 @@ import React from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
 import { useDeliveryStore } from "../../store/deliveryStore";
-import { getDeliveryLeg } from "../../utils/deliveryStatus";
+import { getDeliveryLeg, isDeliveryLocked } from "../../utils/deliveryStatus";
+import { BatchDeliveryScreen } from "./BatchDeliveryScreen";
 import { useAutoEnRoute } from "../../hooks/useAutoEnRoute";
 import { TopStatusBar } from "./TopStatusBar";
 import { DeliveryMapView } from "./DeliveryMapView";
@@ -15,8 +16,14 @@ import { CustomerLegPanel } from "./CustomerLegPanel";
 export function ActiveDeliveryScreen() {
   const { colors } = useTheme();
   const delivery = useDeliveryStore((s) => s.activeDelivery);
+  const activeBatches = useDeliveryStore((s) => s.activeBatches);
 
   useAutoEnRoute(delivery);
+
+  // If no instant delivery but has active batch, show batch screen
+  if (!delivery && activeBatches.length > 0) {
+    return <BatchDeliveryScreen />;
+  }
 
   if (!delivery) return null;
 

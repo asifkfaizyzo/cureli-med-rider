@@ -23,9 +23,15 @@ const ARRIVAL_RADIUS_METERS = 30;
 
 interface CustomerLegPanelProps {
   delivery: ActiveDelivery;
+  onStatusUpdated?: (updated: ActiveDelivery) => void;
+  onDeliveryDone?: () => void;
 }
 
-export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
+export function CustomerLegPanel({
+  delivery,
+  onStatusUpdated,
+  onDeliveryDone,
+}: CustomerLegPanelProps) {
   const { colors } = useTheme();
   const setActiveDelivery = useDeliveryStore((s) => s.setActiveDelivery);
   const clearActiveDelivery = useDeliveryStore((s) => s.clearActiveDelivery);
@@ -88,7 +94,11 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
         delivery.delivery_id,
         "ARRIVED_AT_CUSTOMER",
       );
-      setActiveDelivery(updated);
+      if (onStatusUpdated) {
+        onStatusUpdated(updated);
+      } else {
+        setActiveDelivery(updated);
+      }
     } catch (err: any) {
       dialog.alert({
         title: "Error",
@@ -105,7 +115,6 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
       setOtp("");
       setOtpError(false);
 
-      // Snapshot delivery state and open success modal
       setCompletedDeliverySnapshot(delivery);
       setShowSuccessModal(true);
     } catch (err: any) {
@@ -125,7 +134,11 @@ export function CustomerLegPanel({ delivery }: CustomerLegPanelProps) {
   const handleModalDone = () => {
     setShowSuccessModal(false);
     setCompletedDeliverySnapshot(null);
-    clearActiveDelivery(); // Returns rider back to Home / Tabs
+    if (onDeliveryDone) {
+      onDeliveryDone();
+    } else {
+      clearActiveDelivery();
+    }
   };
 
   const distanceLabel =

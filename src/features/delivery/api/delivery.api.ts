@@ -3,6 +3,7 @@
 import { api } from "../../../services/api";
 import type {
   ActiveDelivery,
+  ActiveDeliveriesResponse,
   DeliveryHistoryListResponse,
   DeliveryHistoryFilters,
   DeliveryHistoryDetail,
@@ -14,6 +15,33 @@ export const deliveryApi = {
       "/rider/delivery/active",
     );
     return res.data?.data || null;
+  },
+
+  async getActiveDeliveries(): Promise<ActiveDeliveriesResponse> {
+    const res = await api.get<{
+      success: boolean;
+      data: ActiveDeliveriesResponse;
+    }>("/rider/delivery/active-all");
+    return res.data?.data || { instant: null, batches: [] };
+  },
+
+  async acceptBatch(batchGroupId: string): Promise<{ accepted_count: number }> {
+    const res = await api.post<{
+      success: boolean;
+      data: { accepted_count: number };
+    }>(`/rider/delivery/batch/${batchGroupId}/accept`);
+    return res.data.data;
+  },
+
+  async declineBatch(
+    batchGroupId: string,
+    reason?: string,
+  ): Promise<{ declined_count: number }> {
+    const res = await api.post<{
+      success: boolean;
+      data: { declined_count: number };
+    }>(`/rider/delivery/batch/${batchGroupId}/decline`, { reason });
+    return res.data.data;
   },
 
   async acceptDelivery(deliveryId: string): Promise<ActiveDelivery> {

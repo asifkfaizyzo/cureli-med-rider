@@ -6,6 +6,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
 import { useDeliveryStore } from "../../store/deliveryStore";
+import { isRiderLocked } from "../../utils/deliveryStatus";
+import { BatchDeliveryScreen } from "./BatchDeliveryScreen";
 
 /**
  * Blocking gate shown once per authenticated session, before we know
@@ -18,10 +20,14 @@ import { useDeliveryStore } from "../../store/deliveryStore";
  * accidentally wander around the app instead of being locked into
  * ActiveDeliveryScreen. Instead we block with a clear retry action.
  */
-export function DeliveryHydrationGate() {
+export function DeliveryHydrationGate({ children }: { children?: React.ReactNode }) {
   const { colors } = useTheme();
   const syncError = useDeliveryStore((s) => s.syncError);
   const requestResync = useDeliveryStore((s) => s.requestResync);
+  const activeBatches = useDeliveryStore((s) => s.activeBatches);
+  const activeDelivery = useDeliveryStore((s) => s.activeDelivery);
+  const hasSynced = useDeliveryStore((s) => s.hasSyncedDelivery);
+  const isLocked = isRiderLocked(activeDelivery, activeBatches);
 
   return (
     <SafeAreaView
@@ -55,13 +61,17 @@ export function DeliveryHydrationGate() {
             </Text>
           </TouchableOpacity>
         </View>
-      ) : (
+      ) : !hasSynced ? (
         <View style={styles.content}>
           <ActivityIndicator size="large" color={colors.brand.primary} />
           <Text style={[styles.loadingText, { color: colors.text.muted }]}>
             Checking for active deliveries...
           </Text>
         </View>
+      ) : activeBatches.length > 0 && !activeDelivery ? (
+        <BatchDeliveryScreen />
+      ) : (
+        <>{children}</>
       )}
     </SafeAreaView>
   );

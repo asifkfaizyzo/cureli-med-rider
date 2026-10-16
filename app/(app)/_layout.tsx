@@ -11,10 +11,11 @@ import { useSSEConnection } from "../../src/hooks/useSSEConnection";
 import { useDeliveryEvents } from "../../src/hooks/useDeliveryEvents";
 import { IncomingOrderOverlay } from "../../src/components/delivery/IncomingOrderOverlay";
 import { ActiveDeliveryScreen } from "../../src/components/delivery/ActiveDeliveryScreen";
+import { BatchDeliveryScreen } from "../../src/components/delivery/BatchDeliveryScreen";
 import { DeliveryHydrationGate } from "../../src/components/delivery/DeliveryHydrationGate";
 import { useAuthStore } from "../../src/store/authStore";
 import { useDeliveryStore } from "../../src/store/deliveryStore";
-import { isDeliveryLocked } from "../../src/utils/deliveryStatus";
+import { isDeliveryLocked, isBatchLocked } from "../../src/utils/deliveryStatus";
 
 /**
  * Nested Protected Boundary.
@@ -68,6 +69,7 @@ function ProtectedLayout() {
 
   const hasSyncedDelivery = useDeliveryStore((s) => s.hasSyncedDelivery);
   const activeDelivery = useDeliveryStore((s) => s.activeDelivery);
+  const activeBatches = useDeliveryStore((s) => s.activeBatches);
 
   // Fail-closed hydration gate — see DeliveryHydrationGate for rationale.
   if (!hasSyncedDelivery) {
@@ -88,6 +90,20 @@ function ProtectedLayout() {
     return (
       <>
         <ActiveDeliveryScreen />
+        <BackgroundLocationDisclosure
+          visible={showDisclosure}
+          type={disclosureType}
+          onAccept={handleAccept}
+          onDecline={handleDecline}
+        />
+      </>
+    );
+  }
+
+  if (isBatchLocked(activeBatches)) {
+    return (
+      <>
+        <BatchDeliveryScreen />
         <BackgroundLocationDisclosure
           visible={showDisclosure}
           type={disclosureType}

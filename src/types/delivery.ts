@@ -100,6 +100,45 @@ export interface ActiveDelivery {
   };
 }
 
+// ── Same Day Batch Types ────────────────────────────────────────
+
+export interface SameDayBatchOrder {
+  delivery_id: string;
+  order_id: string;
+  order_number: string;
+  status: DeliveryStatus;
+  order_status: MarketplaceOrderStatus;
+  total_amount: number;
+  payment_method: string;
+  item_count: number;
+  items: DeliveryOrderItem[];
+  pharmacy: ActiveDeliveryPharmacy;
+  customer: ActiveDeliveryCustomer | null;
+  timestamps: ActiveDelivery["timestamps"];
+}
+
+export interface SameDayBatch {
+  batch_group_id: string;
+  order_count: number;
+  orders: SameDayBatchOrder[];
+}
+
+export interface IncomingBatchAlert {
+  batch_group_id: string;
+  order_count: number;
+  pharmacy_name: string;
+  deliveries: {
+    delivery_id: string;
+    order_id: string;
+  }[];
+  timestamp: string;
+}
+
+export interface ActiveDeliveriesResponse {
+  instant: ActiveDelivery | null;
+  batches: SameDayBatch[];
+}
+
 export type HistoryStatusFilter = "DELIVERED" | "FAILED" | "CANCELLED";
 
 export interface DeliveryHistoryItem {
