@@ -11,7 +11,7 @@ module.exports = {
     owner: "your-zeros-and-ones",
     name: "Cureli Rider",
     slug: "cureli-rider",
-    version: "2.1.0",
+    version: "2.2.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "cureli-rider",
@@ -26,7 +26,7 @@ module.exports = {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.cureli.rider",
-      versionCode: 9, // ← BUMP this integer (e.g. 2, 3, 4) for every future build you submit
+      versionCode: 10, 
       googleServicesFile: "./google-services.json",
       permissions: [
         "android.permission.CAMERA",
